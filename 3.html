@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ghép ảnh</title>
+<style>
+  :root{
+    --ink:#2b2521;
+    --paper:#f6f1e8;
+    --paper-2:#ece4d4;
+    --line:#cfc3ac;
+    --accent:#b5562f;
+    --accent-soft:#e7d9c4;
+    --white:#fffdf9;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Iowan Old Style','Georgia',serif;
+    min-height:100vh;
+  }
+  .topbar{
+    padding:28px 20px 18px;
+    border-bottom:2px solid var(--ink);
+    background:var(--paper);
+  }
+  .topbar h1{
+    margin:0;
+    font-size:clamp(22px,5vw,30px);
+    letter-spacing:0.5px;
+    font-weight:600;
+  }
+  .topbar p{
+    margin:6px 0 0;
+    font-family:Helvetica,Arial,sans-serif;
+    font-size:13px;
+    color:#6b6052;
+  }
+
+  .wrap{max-width:920px;margin:0 auto;padding:20px;}
+
+  /* --- Bước chọn mẫu --- */
+  .step-label{
+    font-family:Helvetica,Arial,sans-serif;
+    font-size:11px;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    color:var(--accent);
+    font-weight:700;
+    margin:0 0 10px;
+  }
+  .size-hint{
+    font-family:Helvetica,Arial,sans-serif;
+    font-size:12.5px;
+    color:#6b6052;
+    margin:-4px 0 10px;
+    line-height:1.5;
+  }
+  .templates{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(110px,1fr));
+    gap:12px;
+    margin-bottom:28px;
+  }
+  .tpl-btn{
+    background:var(--white);
+    border:2px solid var(--line);
+    border-radius:6px;
+    padding:10px 8px 8px;
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+    transition:border-color .15s, transform .15s;
+    font-family:Helvetica,Arial,sans-serif;
+  }
+  .tpl-btn:hover{transform:translateY(-2px);border-color:var(--accent);}
+  .tpl-btn.active{
+    border-color:var(--accent);
+    background:var(--accent-soft);
+  }
+  .tpl-preview{
+    width:64px;height:64px;
+    display:grid;
+    gap:2px;
+    background:var(--ink);
+    border:1px solid var(--ink);
+  }
+  .tpl-preview span{background:var(--white);}
+  .tpl-name{font-size:11px;text-align:center;line-height:1.3;color:var(--ink);}
+
+  /* --- Khung ghép --- */
+  .stage-frame{
+    background:var(--white);
+    border:2px solid var(--ink);
+    padding:14px;
+    border-radius:4px;
+  }
+  #stage{
+    display:grid;
+    gap:6px;
+    width:100%;
+    aspect-ratio:1/1;
+    background:var(--ink);
+  }
+  .cell{
+    position:relative;
+    background:var(--paper-2);
+    overflow:hidden;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .cell img{
+    width:100%;height:100%;
+    object-fit:cover;
+    display:block;
+  }
+  .cell .plus{
+    font-family:Helvetica,Arial,sans-serif;
+    font-size:13px;
+    color:#8a7e6c;
+    text-align:center;
+    padding:4px;
+  }
+  .cell .plus b{display:block;font-size:26px;font-weight:300;line-height:1;}
+  .cell input[type=file]{display:none;}
+  .cell .size-tag{
+    position:absolute;
+    bottom:6px;left:6px;
+    background:rgba(43,37,33,0.7);
+    color:#fff;
+    font-family:Helvetica,Arial,sans-serif;
+    font-size:10.5px;
+    letter-spacing:0.2px;
+    padding:3px 7px;
+    border-radius:3px;
+    pointer-events:none;
+    white-space:nowrap;
+  }
+  .cell .size-tag.tag-empty{
+    position:static;
+    background:transparent;
+    color:#9a8d77;
+    padding:2px 0 0;
+  }
+  .cell .remove-btn{
+    position:absolute;top:6px;right:6px;
+    width:24px;height:24px;
+    background:rgba(43,37,33,0.75);
+    color:#fff;
+    border:none;border-radius:50%;
+    font-size:14px;line-height:1;
+    cursor:pointer;
+    display:none;
+    align-items:center;justify-content:center;
+    font-family:Helvetica,Arial,sans-serif;
+  }
+  .cell:hover .remove-btn{display:flex;}
+
+  /* --- Tuỳ chỉnh & xuất file --- */
+  .controls{
+    margin-top:22px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:14px;
+    align-items:center;
+    font-family:Helvetica,Arial,sans-serif;
+  }
+  .ctrl-group{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:13px;
+  }
+  .ctrl-group label{color:#6b6052;}
+  select, input[type=range]{
+    accent-color:var(--accent);
+  }
+  select{
+    font-family:Helvetica,Arial,sans-serif;
+    font-size:13px;
+    padding:5px 8px;
+    border:1px solid var(--line);
+    border-radius:4px;
+    background:var(--white);
+    color:var(--ink);
+  }
+  .btn{
+    font-family:Helvetica,Arial,sans-serif;
+    font-size:14px;
+    font-weight:600;
+    padding:11px 22px;
+    border-radius:4px;
+    border:2px solid var(--ink);
+    background:var(--ink);
+    color:var(--paper);
+    cursor:pointer;
+    transition:opacity .15s;
+  }
+  .btn:hover{opacity:0.85;}
+  .btn.secondary{
+    background:transparent;
+    color:var(--ink);
+  }
+  .export-row{
+    margin-top:18px;
+    display:flex;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  footer{
+    text-align:center;
+    font-family:Helvetica,Arial,sans-serif;
+    font-size:11px;
+    color:#a89b86;
+    padding:30px 0 16px;
+  }
+
+  @media (max-width:600px){
+    .templates{grid-template-columns:repeat(auto-fill,minmax(86px,1fr));}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Ghép ảnh</h1>
+  <p>Chọn mẫu khung &rarr; bấm vào từng ô để tải ảnh lên &rarr; xuất file ảnh hoàn chỉnh.</p>
+</div>
+
+<div class="wrap">
+
+  <p class="step-label">Bước 1 — Chọn mẫu khung (template)</p>
+  <div class="templates" id="templates"></div>
+
+  <p class="step-label">Bước 2 — Tải ảnh vào từng khung</p>
+  <p class="size-hint">Số trong mỗi ô là kích thước ảnh gốc nên có (tối thiểu), tính theo chiều của ô đó — ảnh nhỏ hơn số này sẽ bị vỡ nét (mờ, rỗ pixel) khi xuất ra.</p>
+  <div class="stage-frame">
+    <div id="stage"></div>
+  </div>
+
+  <div class="controls">
+    <div class="ctrl-group">
+      <label for="gapRange">Khoảng cách giữa ảnh</label>
+      <input type="range" id="gapRange" min="0" max="24" value="6">
+    </div>
+    <div class="ctrl-group">
+      <label for="bgColor">Màu nền viền</label>
+      <select id="bgColor">
+        <option value="#2b2521">Đen ấm</option>
+        <option value="#ffffff">Trắng</option>
+        <option value="#b5562f">Cam đất</option>
+        <option value="#f6f1e8">Kem</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="export-row">
+    <button class="btn" id="exportBtn">Xuất ảnh (PNG)</button>
+    <button class="btn secondary" id="resetBtn">Xoá hết ảnh</button>
+  </div>
+
+</div>
+
+<footer>Mọi xử lý diễn ra ngay trên máy của bạn — ảnh không được tải lên đâu cả.</footer>
+
+<canvas id="exportCanvas" style="display:none;"></canvas>
+
+<script>
+/* ----------------------------------------------------
+   Định nghĩa các mẫu khung (template).
+   Mỗi mẫu là một danh sách ô, dùng CSS grid-area
+   để tạo bố cục linh hoạt (to nhỏ khác nhau).
+---------------------------------------------------- */
+const TEMPLATES = [
+  {
+    id:'grid2x2', name:'Lưới 2×2',
+    cols:2, rows:2,
+    areas:['a a','a a'].length ? null : null, // không dùng, để trống
+    cells:[
+      {area:'1 / 1 / 2 / 2'},
+      {area:'1 / 2 / 2 / 3'},
+      {area:'2 / 1 / 3 / 2'},
+      {area:'2 / 2 / 3 / 3'}
+    ]
+  },
+  {
+    id:'grid3x3', name:'Lưới 3×3',
+    cols:3, rows:3,
+    cells:Array.from({length:9},(_,i)=>{
+      const r=Math.floor(i/3)+1, c=(i%3)+1;
+      return {area:`${r} / ${c} / ${r+1} / ${c+1}`};
+    })
+  },
+  {
+    id:'row3', name:'1 hàng — 3 ảnh',
+    cols:3, rows:1,
+    cells:[
+      {area:'1 / 1 / 2 / 2'},
+      {area:'1 / 2 / 2 / 3'},
+      {area:'1 / 3 / 2 / 4'}
+    ]
+  },
+  {
+    id:'col3', name:'1 cột — 3 ảnh',
+    cols:1, rows:3,
+    cells:[
+      {area:'1 / 1 / 2 / 2'},
+      {area:'2 / 1 / 3 / 2'},
+      {area:'3 / 1 / 4 / 2'}
+    ]
+  },
+  {
+    id:'bigleft', name:'1 lớn trái + 2 nhỏ phải',
+    cols:3, rows:2,
+    cells:[
+      {area:'1 / 1 / 3 / 3'},
+      {area:'1 / 3 / 2 / 4'},
+      {area:'2 / 3 / 3 / 4'}
+    ]
+  },
+  {
+    id:'bigtop', name:'1 lớn trên + 3 nhỏ dưới',
+    cols:3, rows:2,
+    cells:[
+      {area:'1 / 1 / 2 / 4'},
+      {area:'2 / 1 / 3 / 2'},
+      {area:'2 / 2 / 3 / 3'},
+      {area:'2 / 3 / 3 / 4'}
+    ]
+  },
+  {
+    id:'cross', name:'Tâm điểm giữa',
+    cols:3, rows:3,
+    cells:[
+      {area:'1 / 1 / 2 / 2'},
+      {area:'1 / 2 / 2 / 3'},
+      {area:'1 / 3 / 2 / 4'},
+      {area:'2 / 1 / 3 / 2'},
+      {area:'2 / 2 / 4 / 4'},
+      {area:'3 / 1 / 4 / 2'}
+    ]
+  },
+  {
+    id:'mosaic5', name:'Khảm 5 ô lệch',
+    cols:4, rows:3,
+    cells:[
+      {area:'1 / 1 / 3 / 3'},
+      {area:'1 / 3 / 2 / 5'},
+      {area:'2 / 3 / 3 / 4'},
+      {area:'2 / 4 / 3 / 5'},
+      {area:'3 / 1 / 4 / 5'}
+    ]
+  }
+];
+
+const templatesEl = document.getElementById('templates');
+const stageEl = document.getElementById('stage');
+let currentTemplate = TEMPLATES[0];
+// Lưu ảnh theo id mẫu + chỉ số ô, để đổi mẫu không mất ảnh đã tải nếu trùng mẫu
+let imageStore = {};
+const EXPORT_SIZE = 1200; // độ phân giải cạnh canvas khi xuất, đơn vị px — dùng chung để tính kích thước gợi ý
+
+function previewGridHTML(t){
+  const div = document.createElement('div');
+  div.className = 'tpl-preview';
+  div.style.gridTemplateColumns = `repeat(${t.cols}, 1fr)`;
+  div.style.gridTemplateRows = `repeat(${t.rows}, 1fr)`;
+  t.cells.forEach(c=>{
+    const span = document.createElement('span');
+    span.style.gridArea = c.area;
+    div.appendChild(span);
+  });
+  return div;
+}
+
+function renderTemplateList(){
+  templatesEl.innerHTML = '';
+  TEMPLATES.forEach(t=>{
+    const btn = document.createElement('button');
+    btn.className = 'tpl-btn' + (t.id===currentTemplate.id ? ' active' : '');
+    btn.appendChild(previewGridHTML(t));
+    const label = document.createElement('div');
+    label.className = 'tpl-name';
+    label.textContent = t.name;
+    btn.appendChild(label);
+    btn.onclick = ()=>{
+      currentTemplate = t;
+      renderTemplateList();
+      renderStage();
+    };
+    templatesEl.appendChild(btn);
+  });
+}
+
+function cellPixelSize(c, gap){
+  const colW = EXPORT_SIZE / currentTemplate.cols;
+  const rowH = EXPORT_SIZE / currentTemplate.rows;
+  const [r1,c1,r2,c2] = c.area.split('/').map(s=>parseInt(s.trim(),10));
+  const w = Math.round((c2-c1)*colW - gap);
+  const h = Math.round((r2-r1)*rowH - gap);
+  return {w,h};
+}
+
+function renderStage(){
+  stageEl.innerHTML = '';
+  const gap = parseInt(document.getElementById('gapRange').value, 10);
+  stageEl.style.gridTemplateColumns = `repeat(${currentTemplate.cols}, 1fr)`;
+  stageEl.style.gridTemplateRows = `repeat(${currentTemplate.rows}, 1fr)`;
+  stageEl.style.gap = gap + 'px';
+
+  currentTemplate.cells.forEach((c, idx)=>{
+    const key = currentTemplate.id + '-' + idx;
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.style.gridArea = c.area;
+
+    const {w,h} = cellPixelSize(c, gap);
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.id = 'file-' + key;
+
+    cell.appendChild(input);
+
+    if(imageStore[key]){
+      const img = document.createElement('img');
+      img.src = imageStore[key];
+      cell.appendChild(img);
+
+      const sizeTag = document.createElement('div');
+      sizeTag.className = 'size-tag';
+      sizeTag.textContent = `≥ ${w}×${h} px`;
+      cell.appendChild(sizeTag);
+
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'remove-btn';
+      removeBtn.textContent = '×';
+      removeBtn.onclick = (e)=>{
+        e.stopPropagation();
+        delete imageStore[key];
+        renderStage();
+      };
+      cell.appendChild(removeBtn);
+    } else {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'plus';
+      placeholder.innerHTML = `<b>+</b>Tải ảnh<div class="size-tag tag-empty">đẹp nhất ở ${w}×${h} px</div>`;
+      cell.appendChild(placeholder);
+    }
+
+    cell.onclick = ()=> input.click();
+    input.onchange = (e)=>{
+      const file = e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev)=>{
+        imageStore[key] = ev.target.result;
+        renderStage();
+      };
+      reader.readAsDataURL(file);
+    };
+
+    stageEl.appendChild(cell);
+  });
+}
+
+document.getElementById('gapRange').addEventListener('input', renderStage);
+
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  imageStore = {};
+  renderStage();
+});
+
+/* ----------------------------------------------------
+   Xuất ảnh: vẽ lại toàn bộ bố cục lên canvas độ phân
+   giải cao rồi tải xuống PNG.
+---------------------------------------------------- */
+document.getElementById('exportBtn').addEventListener('click', async ()=>{
+  const SCALE = EXPORT_SIZE; // dùng đúng kích thước đã hiển thị gợi ý cho người dùng
+  const gap = parseInt(document.getElementById('gapRange').value, 10);
+  const bg = document.getElementById('bgColor').value;
+  const canvas = document.getElementById('exportCanvas');
+  canvas.width = SCALE;
+  canvas.height = SCALE;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0,0,SCALE,SCALE);
+
+  const colW = SCALE / currentTemplate.cols;
+  const rowH = SCALE / currentTemplate.rows;
+
+  const loadImg = (src)=> new Promise((res)=>{
+    const im = new Image();
+    im.onload = ()=>res(im);
+    im.src = src;
+  });
+
+  for(let idx=0; idx<currentTemplate.cells.length; idx++){
+    const c = currentTemplate.cells[idx];
+    const key = currentTemplate.id + '-' + idx;
+    const [r1,c1,r2,c2] = c.area.split('/').map(s=>parseInt(s.trim(),10));
+    const x = (c1-1)*colW + gap/2;
+    const y = (r1-1)*rowH + gap/2;
+    const w = (c2-c1)*colW - gap;
+    const h = (r2-r1)*rowH - gap;
+
+    if(imageStore[key]){
+      const img = await loadImg(imageStore[key]);
+      // object-fit: cover, vẽ phần ảnh được cắt giữa cho vừa khung
+      const ir = img.width / img.height;
+      const cr = w / h;
+      let sx,sy,sw,sh;
+      if(ir > cr){
+        sh = img.height;
+        sw = sh * cr;
+        sx = (img.width - sw)/2;
+        sy = 0;
+      } else {
+        sw = img.width;
+        sh = sw / cr;
+        sx = 0;
+        sy = (img.height - sh)/2;
+      }
+      ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+    } else {
+      ctx.fillStyle = '#ece4d4';
+      ctx.fillRect(x,y,w,h);
+    }
+  }
+
+  const link = document.createElement('a');
+  link.download = 'ghep-anh.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+});
+
+renderTemplateList();
+renderStage();
+</script>
+</body>
+</html>
