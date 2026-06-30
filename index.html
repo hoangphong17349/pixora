@@ -2,26 +2,37 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tool ảnh</title>
 
     <style>
-        /* Laptop (mặc định) */
+        /* Laptop */
         h1 {
             font-size: 32px;
+            color: black;
         }
 
         ul {
             font-size: 20px;
         }
 
+        a {
+            color: blue;
+        }
+
         /* Điện thoại */
-        @media (max-width: 768px) {
+        @media screen and (max-width: 1000px) {
             h1 {
                 font-size: 24px;
+                color: red;
             }
 
             ul {
                 font-size: 16px;
+            }
+
+            a {
+                color: red;
             }
         }
     </style>
@@ -38,7 +49,7 @@
             <a href="2.html">Chuyển định dạng ảnh (image format conversion)</a>
         </li>
         <li>
-            <a href="3.html">ghép ảnh theo khung mẫu</a>
+            <a href="3.html">Ghép ảnh theo khung mẫu</a>
         </li>
     </ul>
 
