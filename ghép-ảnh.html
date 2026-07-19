@@ -157,11 +157,26 @@
     border:none;border-radius:50%;
     font-size:14px;line-height:1;
     cursor:pointer;
-    display:none;
+    display:flex;
     align-items:center;justify-content:center;
     font-family:Helvetica,Arial,sans-serif;
   }
-  .cell:hover .remove-btn{display:flex;}
+  .cell .fit-btn{
+    position:absolute;top:6px;right:36px;
+    height:24px;
+    padding:0 9px;
+    background:rgba(43,37,33,0.75);
+    color:#fff;
+    border:none;border-radius:12px;
+    font-size:10.5px;
+    letter-spacing:0.2px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;justify-content:center;
+    font-family:Helvetica,Arial,sans-serif;
+    white-space:nowrap;
+  }
+  .cell.fit-contain img{object-fit:contain;background:var(--paper-2);}
 
   /* --- Tuỳ chỉnh & xuất file --- */
   .controls{
@@ -365,6 +380,8 @@ const stageEl = document.getElementById('stage');
 let currentTemplate = TEMPLATES[0];
 // Lưu ảnh theo id mẫu + chỉ số ô, để đổi mẫu không mất ảnh đã tải nếu trùng mẫu
 let imageStore = {};
+// Lưu chế độ co giãn của từng ô: 'cover' (lấp đầy, có thể cắt mất nội dung) hoặc 'contain' (co ảnh vào để giữ trọn nội dung)
+let imageFitMode = {};
 const EXPORT_SIZE = 1200; // độ phân giải cạnh canvas khi xuất, đơn vị px — dùng chung để tính kích thước gợi ý
 
 function previewGridHTML(t){
@@ -431,6 +448,9 @@ function renderStage(){
     cell.appendChild(input);
 
     if(imageStore[key]){
+      const fitMode = imageFitMode[key] || 'cover';
+      if(fitMode === 'contain') cell.classList.add('fit-contain');
+
       const img = document.createElement('img');
       img.src = imageStore[key];
       cell.appendChild(img);
@@ -440,12 +460,24 @@ function renderStage(){
       sizeTag.textContent = `≥ ${w}×${h} px`;
       cell.appendChild(sizeTag);
 
+      const fitBtn = document.createElement('button');
+      fitBtn.className = 'fit-btn';
+      fitBtn.textContent = fitMode === 'contain' ? 'Lấp đầy' : 'Co vào';
+      fitBtn.title = 'Co ảnh vào để tránh mất nội dung khi ảnh bị cắt';
+      fitBtn.onclick = (e)=>{
+        e.stopPropagation();
+        imageFitMode[key] = fitMode === 'contain' ? 'cover' : 'contain';
+        renderStage();
+      };
+      cell.appendChild(fitBtn);
+
       const removeBtn = document.createElement('button');
       removeBtn.className = 'remove-btn';
       removeBtn.textContent = '×';
       removeBtn.onclick = (e)=>{
         e.stopPropagation();
         delete imageStore[key];
+        delete imageFitMode[key];
         renderStage();
       };
       cell.appendChild(removeBtn);
@@ -462,8 +494,19 @@ function renderStage(){
       if(!file) return;
       const reader = new FileReader();
       reader.onload = (ev)=>{
-        imageStore[key] = ev.target.result;
-        renderStage();
+        const dataUrl = ev.target.result;
+        // Tải ảnh để đo tỉ lệ khung hình thật, từ đó tự quyết định co vào hay lấp đầy
+        const probe = new Image();
+        probe.onload = ()=>{
+          const ir = probe.width / probe.height;
+          const cr = w / h;
+          const ratioDiff = Math.max(ir/cr, cr/ir); // lệch càng nhiều thì số này càng lớn
+          // Lệch tỉ lệ trên ~1.6 lần: cắt theo cover sẽ mất nhiều nội dung -> tự động co ảnh vào (contain)
+          imageFitMode[key] = ratioDiff > 1.6 ? 'contain' : 'cover';
+          imageStore[key] = dataUrl;
+          renderStage();
+        };
+        probe.src = dataUrl;
       };
       reader.readAsDataURL(file);
     };
@@ -476,6 +519,7 @@ document.getElementById('gapRange').addEventListener('input', renderStage);
 
 document.getElementById('resetBtn').addEventListener('click', ()=>{
   imageStore = {};
+  imageFitMode = {};
   renderStage();
 });
 
@@ -514,22 +558,41 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
 
     if(imageStore[key]){
       const img = await loadImg(imageStore[key]);
-      // object-fit: cover, vẽ phần ảnh được cắt giữa cho vừa khung
+      const fitMode = imageFitMode[key] || 'cover';
       const ir = img.width / img.height;
       const cr = w / h;
-      let sx,sy,sw,sh;
-      if(ir > cr){
-        sh = img.height;
-        sw = sh * cr;
-        sx = (img.width - sw)/2;
-        sy = 0;
+
+      if(fitMode === 'contain'){
+        // co giãn (contain): vẽ trọn ảnh vào giữa khung, không cắt mất nội dung
+        ctx.fillStyle = '#ece4d4';
+        ctx.fillRect(x,y,w,h);
+        let dw, dh;
+        if(ir > cr){
+          dw = w;
+          dh = w / ir;
+        } else {
+          dh = h;
+          dw = h * ir;
+        }
+        const dx = x + (w - dw)/2;
+        const dy = y + (h - dh)/2;
+        ctx.drawImage(img, 0, 0, img.width, img.height, dx, dy, dw, dh);
       } else {
-        sw = img.width;
-        sh = sw / cr;
-        sx = 0;
-        sy = (img.height - sh)/2;
+        // lấp đầy (cover), vẽ phần ảnh được cắt giữa cho vừa khung
+        let sx,sy,sw,sh;
+        if(ir > cr){
+          sh = img.height;
+          sw = sh * cr;
+          sx = (img.width - sw)/2;
+          sy = 0;
+        } else {
+          sw = img.width;
+          sh = sw / cr;
+          sx = 0;
+          sy = (img.height - sh)/2;
+        }
+        ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
       }
-      ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
     } else {
       ctx.fillStyle = '#ece4d4';
       ctx.fillRect(x,y,w,h);
