@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Xóa nền ảnh</title>
+<style>
+  :root{
+    --bg: #14131a;
+    --panel: #1c1b24;
+    --panel-2: #201f28;
+    --line: #322f3d;
+    --ink: #ede9e2;
+    --muted: #8b889a;
+    --amber: #e8a33d;
+    --amber-dim: #6b5326;
+    --board-a: #2a2930;
+    --board-b: #201f26;
+  }
+  *{ box-sizing: border-box; }
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding: 32px 20px;
+  }
+
+  .wrap{ width:100%; max-width: 880px; }
+
+  header{ margin-bottom: 28px; }
+  h1{
+    font-size: 28px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+  }
+  header p{
+    margin:0;
+    color: var(--muted);
+    font-size: 14.5px;
+    max-width: 52ch;
+    line-height: 1.5;
+  }
+
+  /* --- Dropzone: viewfinder-style corner brackets, photography metaphor --- */
+  .dropzone{
+    position: relative;
+    background: var(--panel);
+    border-radius: 4px;
+    padding: 64px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+    border: 1px solid transparent;
+  }
+  .dropzone.dragover{
+    background: var(--panel-2);
+    border-color: var(--amber-dim);
+  }
+  .bracket{
+    position:absolute;
+    width: 26px; height: 26px;
+    border-color: var(--muted);
+    border-style: solid;
+    border-width: 0;
+    transition: border-color 0.15s ease;
+  }
+  .dropzone.dragover .bracket{ border-color: var(--amber); }
+  .bracket.tl{ top:14px; left:14px; border-top-width:2px; border-left-width:2px; }
+  .bracket.tr{ top:14px; right:14px; border-top-width:2px; border-right-width:2px; }
+  .bracket.bl{ bottom:14px; left:14px; border-bottom-width:2px; border-left-width:2px; }
+  .bracket.br{ bottom:14px; right:14px; border-bottom-width:2px; border-right-width:2px; }
+
+  .dz-icon{
+    width: 44px; height: 44px;
+    margin: 0 auto 18px;
+    color: var(--muted);
+  }
+  .dz-title{ font-size: 16.5px; font-weight: 550; margin-bottom: 6px; }
+  .dz-sub{ font-size: 13.5px; color: var(--muted); }
+  .dz-sub b{ color: var(--ink); font-weight: 550; text-decoration: underline; text-underline-offset: 3px; }
+
+  input[type=file]{ display:none; }
+
+  /* --- Working state --- */
+  .working{
+    display:none;
+    background: var(--panel);
+    border-radius: 4px;
+    padding: 56px 24px;
+    text-align:center;
+  }
+  .working.active{ display:block; }
+  .spinner{
+    width: 30px; height: 30px;
+    margin: 0 auto 20px;
+    border-radius: 50%;
+    border: 2px solid var(--line);
+    border-top-color: var(--amber);
+    animation: spin 0.85s linear infinite;
+  }
+  @keyframes spin{ to{ transform: rotate(360deg); } }
+  .working-label{ font-size: 14.5px; color: var(--ink); margin-bottom: 6px; }
+  .working-sub{ font-size: 13px; color: var(--muted); }
+  .progress-track{
+    width: 220px; height: 3px; margin: 18px auto 0;
+    background: var(--line); border-radius: 2px; overflow:hidden;
+  }
+  .progress-fill{
+    height:100%; width:0%; background: var(--amber);
+    transition: width 0.2s ease;
+  }
+
+  /* --- Result state --- */
+  .result{ display:none; }
+  .result.active{ display:block; }
+
+  .panes{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--line);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  @media (max-width: 640px){
+    .panes{ grid-template-columns: 1fr; }
+  }
+  .pane{
+    background: var(--panel);
+    padding: 18px;
+  }
+  .pane-label{
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .pane-img-box{
+    aspect-ratio: 1;
+    border-radius: 3px;
+    display:flex; align-items:center; justify-content:center;
+    overflow:hidden;
+  }
+  .pane-img-box.checker{
+    background-image:
+      linear-gradient(45deg, var(--board-a) 25%, transparent 25%),
+      linear-gradient(-45deg, var(--board-a) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, var(--board-a) 75%),
+      linear-gradient(-45deg, transparent 75%, var(--board-a) 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    background-color: var(--board-b);
+  }
+  .pane-img-box img{
+    max-width:100%; max-height:100%;
+    object-fit: contain;
+    display:block;
+  }
+
+  .actions{
+    display:flex; gap: 10px; margin-top: 20px; flex-wrap: wrap;
+  }
+  button.action{
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 550;
+    padding: 11px 20px;
+    border-radius: 3px;
+    border: none;
+    cursor: pointer;
+  }
+  .btn-primary{ background: var(--amber); color: #1a1408; }
+  .btn-primary:hover{ background: #f0ad4d; }
+  .btn-secondary{ background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  .btn-secondary:hover{ border-color: var(--muted); }
+
+  .error-box{
+    display:none;
+    background: var(--panel);
+    border-left: 2px solid #c0553f;
+    border-radius: 3px;
+    padding: 16px 18px;
+    font-size: 13.5px;
+    color: var(--ink);
+  }
+  .error-box.active{ display:block; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>Xóa nền ảnh</h1>
+    <p>Tải ảnh lên, ảnh sẽ được xử lý ngay trên trình duyệt của bạn — không gửi lên máy chủ nào. Lần đầu chạy sẽ mất thêm chút thời gian để tải mô hình AI.</p>
+  </header>
+
+  <div class="dropzone" id="dropzone">
+    <span class="bracket tl"></span>
+    <span class="bracket tr"></span>
+    <span class="bracket bl"></span>
+    <span class="bracket br"></span>
+    <svg class="dz-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+      <rect x="3" y="5" width="18" height="14" rx="1.5"/>
+      <circle cx="9" cy="10.5" r="2"/>
+      <path d="M3 16l5-4.5 3.5 3 3-2.5L21 16"/>
+    </svg>
+    <div class="dz-title">Kéo ảnh vào đây</div>
+    <div class="dz-sub">hoặc <b>chọn tệp từ máy</b></div>
+    <input type="file" id="fileInput" accept="image/*">
+  </div>
+
+  <div class="working" id="working">
+    <div class="spinner"></div>
+    <div class="working-label" id="workingLabel">Đang xử lý ảnh…</div>
+    <div class="working-sub" id="workingSub">Đang tải mô hình AI lần đầu</div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <div class="result" id="result">
+    <div class="panes">
+      <div class="pane">
+        <div class="pane-label">Ảnh gốc</div>
+        <div class="pane-img-box"><img id="originalImg" alt="Ảnh gốc"></div>
+      </div>
+      <div class="pane">
+        <div class="pane-label">Đã xóa nền</div>
+        <div class="pane-img-box checker"><img id="resultImg" alt="Ảnh đã xóa nền"></div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="action btn-primary" id="downloadBtn">Tải ảnh xuống</button>
+      <button class="action btn-secondary" id="resetBtn">Xử lý ảnh khác</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { removeBackground } from "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm";
+
+  const dropzone   = document.getElementById('dropzone');
+  const fileInput  = document.getElementById('fileInput');
+  const working    = document.getElementById('working');
+  const workingSub = document.getElementById('workingSub');
+  const progressFill = document.getElementById('progressFill');
+  const result     = document.getElementById('result');
+  const errorBox    = document.getElementById('errorBox');
+  const originalImg = document.getElementById('originalImg');
+  const resultImg    = document.getElementById('resultImg');
+  const downloadBtn  = document.getElementById('downloadBtn');
+  const resetBtn      = document.getElementById('resetBtn');
+
+  let resultBlobUrl = null;
+  let sourceFileName = 'anh';
+
+  dropzone.addEventListener('click', () => fileInput.click());
+
+  ['dragenter','dragover'].forEach(evt =>
+    dropzone.addEventListener(evt, e => {
+      e.preventDefault();
+      dropzone.classList.add('dragover');
+    })
+  );
+  ['dragleave','drop'].forEach(evt =>
+    dropzone.addEventListener(evt, e => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+    })
+  );
+  dropzone.addEventListener('drop', e => {
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFile(file);
+  });
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files?.[0];
+    if (file) handleFile(file);
+  });
+
+  resetBtn.addEventListener('click', () => {
+    result.classList.remove('active');
+    errorBox.classList.remove('active');
+    dropzone.style.display = '';
+    fileInput.value = '';
+    if (resultBlobUrl) URL.revokeObjectURL(resultBlobUrl);
+  });
+
+  downloadBtn.addEventListener('click', () => {
+    if (!resultBlobUrl) return;
+    const a = document.createElement('a');
+    a.href = resultBlobUrl;
+    a.download = sourceFileName.replace(/\.[^.]+$/, '') + '-da-xoa-nen.png';
+    a.click();
+  });
+
+  async function handleFile(file) {
+    if (!file.type.startsWith('image/')) {
+      showError('Tệp này không phải là ảnh. Vui lòng chọn một tệp ảnh (JPG, PNG…).');
+      return;
+    }
+
+    sourceFileName = file.name || 'anh';
+    originalImg.src = URL.createObjectURL(file);
+
+    dropzone.style.display = 'none';
+    errorBox.classList.remove('active');
+    result.classList.remove('active');
+    working.classList.add('active');
+    progressFill.style.width = '0%';
+    workingSub.textContent = 'Đang tải mô hình AI lần đầu';
+
+    try {
+      const blob = await removeBackground(file, {
+        model: 'large',
+        output: { format: 'image/png', quality: 1 },
+        progress: (key, current, total) => {
+          if (total > 0) {
+            const pct = Math.round((current / total) * 100);
+            progressFill.style.width = pct + '%';
+            workingSub.textContent = key.startsWith('fetch')
+              ? `Đang tải dữ liệu mô hình… ${pct}%`
+              : `Đang xử lý ảnh… ${pct}%`;
+          }
+        }
+      });
+
+      if (resultBlobUrl) URL.revokeObjectURL(resultBlobUrl);
+      resultBlobUrl = URL.createObjectURL(blob);
+      resultImg.src = resultBlobUrl;
+
+      working.classList.remove('active');
+      result.classList.add('active');
+    } catch (err) {
+      console.error(err);
+      working.classList.remove('active');
+      dropzone.style.display = '';
+      showError('Không thể xử lý ảnh này. Vui lòng thử lại hoặc dùng ảnh khác. (' + (err?.message || 'Lỗi không xác định') + ')');
+    }
+  }
+
+  function showError(msg) {
+    errorBox.textContent = msg;
+    errorBox.classList.add('active');
+  }
+</script>
+
+</body>
+</html>
