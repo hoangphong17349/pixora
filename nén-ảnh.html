@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nén ảnh</title>
+<style>
+  :root{
+    --bg:#181B22;
+    --surface:#20242D;
+    --surface-2:#2A2F3A;
+    --line:#363C49;
+    --text:#E9EBEF;
+    --muted:#8B93A1;
+    --accent:#5FD0C0;
+    --accent-dim:#2E4A47;
+    --warn:#E0A458;
+    --mono:'IBM Plex Mono','SFMono-Regular',Consolas,monospace;
+    --sans:'IBM Plex Sans',-apple-system,'Segoe UI',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    padding:40px 16px;
+  }
+  .wrap{
+    width:100%;
+    max-width:640px;
+  }
+  h1{
+    font-size:22px;
+    font-weight:600;
+    margin:0 0 4px;
+    letter-spacing:-0.01em;
+  }
+  .sub{
+    color:var(--muted);
+    font-size:14px;
+    margin:0 0 28px;
+    line-height:1.5;
+  }
+  .drop{
+    border:1.5px dashed var(--line);
+    border-radius:10px;
+    padding:36px 20px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .15s, background .15s;
+    background:var(--surface);
+  }
+  .drop.drag{
+    border-color:var(--accent);
+    background:var(--accent-dim);
+  }
+  .drop p{margin:0;color:var(--muted);font-size:14px;}
+  .drop .big{color:var(--text);font-size:15px;margin-bottom:6px;}
+  input[type=file]{display:none;}
+
+  .panel{
+    display:none;
+    margin-top:24px;
+  }
+  .panel.show{display:block;}
+
+  .preview-row{
+    display:flex;
+    gap:12px;
+    margin-bottom:20px;
+  }
+  .preview-box{
+    flex:1;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:10px;
+    overflow:hidden;
+  }
+  .preview-box .imgwrap{
+    aspect-ratio:1/1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:
+      linear-gradient(45deg, #23272f 25%, transparent 25%),
+      linear-gradient(-45deg, #23272f 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #23272f 75%),
+      linear-gradient(-45deg, transparent 75%, #23272f 75%);
+    background-size:16px 16px;
+    background-position:0 0, 0 8px, 8px -8px, -8px 0px;
+    background-color:#1c1f26;
+  }
+  .preview-box img{
+    max-width:100%;
+    max-height:100%;
+    object-fit:contain;
+  }
+  .preview-box .meta{
+    padding:10px 12px;
+    border-top:1px solid var(--line);
+  }
+  .preview-box .label{
+    font-size:11px;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    margin-bottom:4px;
+  }
+  .preview-box .size{
+    font-family:var(--mono);
+    font-size:16px;
+    font-weight:600;
+  }
+  .preview-box.after .size{color:var(--accent);}
+  .savepct{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--accent);
+    margin-top:2px;
+  }
+
+  .controls{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:18px 18px 8px;
+    margin-bottom:20px;
+  }
+  .row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:14px;
+    font-size:13px;
+  }
+  .row label{color:var(--muted);}
+  .row .val{
+    font-family:var(--mono);
+    color:var(--text);
+    font-size:13px;
+  }
+  input[type=range]{
+    width:100%;
+    -webkit-appearance:none;
+    height:4px;
+    border-radius:2px;
+    background:var(--line);
+    margin:10px 0 16px;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:16px;height:16px;
+    border-radius:50%;
+    background:var(--accent);
+    cursor:pointer;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:16px;height:16px;
+    border-radius:50%;
+    background:var(--accent);
+    border:none;
+    cursor:pointer;
+  }
+  select{
+    background:var(--surface-2);
+    color:var(--text);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:6px 10px;
+    font-family:var(--sans);
+    font-size:13px;
+  }
+  .dim-inputs{
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .dim-inputs input[type=number]{
+    width:72px;
+    background:var(--surface-2);
+    color:var(--text);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:6px 8px;
+    font-family:var(--mono);
+    font-size:13px;
+  }
+  .dim-inputs span{color:var(--muted);font-size:13px;}
+
+  .actions{
+    display:flex;
+    gap:10px;
+  }
+  button{
+    font-family:var(--sans);
+    font-size:14px;
+    border-radius:8px;
+    padding:12px 18px;
+    cursor:pointer;
+    border:none;
+  }
+  .btn-primary{
+    background:var(--accent);
+    color:#0F2422;
+    font-weight:600;
+    flex:1;
+  }
+  .btn-primary:disabled{
+    opacity:.4;
+    cursor:default;
+  }
+  .btn-secondary{
+    background:transparent;
+    color:var(--muted);
+    border:1px solid var(--line);
+  }
+  .hint{
+    font-size:12px;
+    color:var(--muted);
+    margin-top:14px;
+    line-height:1.5;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Nén ảnh</h1>
+  <p class="sub">Giảm dung lượng ảnh (JPG, PNG, WebP) ngay trên trình duyệt (browser), không tải lên server (máy chủ) nào cả.</p>
+
+  <div class="drop" id="drop">
+    <p class="big">Kéo ảnh vào đây, hoặc bấm để chọn file</p>
+    <p>Hỗ trợ JPG · PNG · WebP</p>
+    <input type="file" id="fileInput" accept="image/*">
+  </div>
+
+  <div class="panel" id="panel">
+    <div class="preview-row">
+      <div class="preview-box before">
+        <div class="imgwrap"><img id="imgBefore" alt="Ảnh gốc"></div>
+        <div class="meta">
+          <div class="label">Trước</div>
+          <div class="size" id="sizeBefore">—</div>
+        </div>
+      </div>
+      <div class="preview-box after">
+        <div class="imgwrap"><img id="imgAfter" alt="Ảnh sau khi nén"></div>
+        <div class="meta">
+          <div class="label">Sau</div>
+          <div class="size" id="sizeAfter">—</div>
+          <div class="savepct" id="savePct"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="row">
+        <label>Chất lượng (quality)</label>
+        <span class="val" id="qualityVal">80%</span>
+      </div>
+      <input type="range" id="qualitySlider" min="10" max="100" value="80">
+
+      <div class="row">
+        <label>Định dạng xuất (output format)</label>
+        <select id="formatSelect">
+          <option value="image/jpeg">JPG</option>
+          <option value="image/webp">WebP</option>
+          <option value="image/png">PNG</option>
+        </select>
+      </div>
+
+      <div class="row">
+        <label>Kích thước (pixel)</label>
+        <div class="dim-inputs">
+          <input type="number" id="widthInput">
+          <span>×</span>
+          <input type="number" id="heightInput">
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-secondary" id="resetBtn">Chọn ảnh khác</button>
+      <button class="btn-primary" id="downloadBtn">Tải ảnh đã nén</button>
+    </div>
+
+    <p class="hint">Với PNG, việc giảm "chất lượng" chủ yếu tác động qua giảm kích thước pixel, vì PNG là định dạng nén không mất dữ liệu (lossless). Muốn nén PNG mạnh hơn, nên đổi định dạng xuất sang JPG hoặc WebP.</p>
+  </div>
+</div>
+
+<script>
+const drop = document.getElementById('drop');
+const fileInput = document.getElementById('fileInput');
+const panel = document.getElementById('panel');
+const imgBefore = document.getElementById('imgBefore');
+const imgAfter = document.getElementById('imgAfter');
+const sizeBefore = document.getElementById('sizeBefore');
+const sizeAfter = document.getElementById('sizeAfter');
+const savePct = document.getElementById('savePct');
+const qualitySlider = document.getElementById('qualitySlider');
+const qualityVal = document.getElementById('qualityVal');
+const formatSelect = document.getElementById('formatSelect');
+const widthInput = document.getElementById('widthInput');
+const heightInput = document.getElementById('heightInput');
+const downloadBtn = document.getElementById('downloadBtn');
+const resetBtn = document.getElementById('resetBtn');
+
+let originalImage = null;
+let originalSize = 0;
+let originalRatio = 1;
+let compressedBlob = null;
+let compressedName = 'anh-da-nen';
+
+function formatBytes(bytes){
+  if(bytes < 1024) return bytes + ' B';
+  if(bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/(1024*1024)).toFixed(2) + ' MB';
+}
+
+function openFile(file){
+  if(!file || !file.type.startsWith('image/')) return;
+  originalSize = file.size;
+  compressedName = file.name.replace(/\.[^.]+$/, '') + '-nen';
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      originalImage = img;
+      originalRatio = img.width / img.height;
+      imgBefore.src = e.target.result;
+      sizeBefore.textContent = formatBytes(originalSize);
+      widthInput.value = img.width;
+      heightInput.value = img.height;
+      panel.classList.add('show');
+      runCompression();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function runCompression(){
+  if(!originalImage) return;
+
+  let w = parseInt(widthInput.value) || originalImage.width;
+  let h = parseInt(heightInput.value) || originalImage.height;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(originalImage, 0, 0, w, h);
+
+  const quality = parseInt(qualitySlider.value) / 100;
+  const mime = formatSelect.value;
+
+  canvas.toBlob((blob) => {
+    if(!blob) return;
+    compressedBlob = blob;
+    const url = URL.createObjectURL(blob);
+    imgAfter.src = url;
+    sizeAfter.textContent = formatBytes(blob.size);
+
+    const diff = originalSize - blob.size;
+    const pct = (diff / originalSize) * 100;
+    if(pct > 0){
+      savePct.textContent = 'Giảm ' + pct.toFixed(0) + '%';
+      savePct.style.color = 'var(--accent)';
+    } else {
+      savePct.textContent = 'Tăng ' + Math.abs(pct).toFixed(0) + '%';
+      savePct.style.color = 'var(--warn)';
+    }
+  }, mime, mime === 'image/png' ? undefined : quality);
+}
+
+// giữ tỷ lệ khi đổi width
+widthInput.addEventListener('input', () => {
+  if(!originalImage) return;
+  const w = parseInt(widthInput.value);
+  if(w) heightInput.value = Math.round(w / originalRatio);
+  clearTimeout(window._t);
+  window._t = setTimeout(runCompression, 250);
+});
+heightInput.addEventListener('input', () => {
+  if(!originalImage) return;
+  const h = parseInt(heightInput.value);
+  if(h) widthInput.value = Math.round(h * originalRatio);
+  clearTimeout(window._t);
+  window._t = setTimeout(runCompression, 250);
+});
+
+qualitySlider.addEventListener('input', () => {
+  qualityVal.textContent = qualitySlider.value + '%';
+  clearTimeout(window._t);
+  window._t = setTimeout(runCompression, 150);
+});
+
+formatSelect.addEventListener('change', runCompression);
+
+drop.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', (e) => openFile(e.target.files[0]));
+
+['dragenter','dragover'].forEach(evt => {
+  drop.addEventListener(evt, (e) => {
+    e.preventDefault();
+    drop.classList.add('drag');
+  });
+});
+['dragleave','drop'].forEach(evt => {
+  drop.addEventListener(evt, (e) => {
+    e.preventDefault();
+    drop.classList.remove('drag');
+  });
+});
+drop.addEventListener('drop', (e) => {
+  const file = e.dataTransfer.files[0];
+  openFile(file);
+});
+
+downloadBtn.addEventListener('click', () => {
+  if(!compressedBlob) return;
+  const ext = formatSelect.value === 'image/png' ? 'png' : (formatSelect.value === 'image/webp' ? 'webp' : 'jpg');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(compressedBlob);
+  a.download = compressedName + '.' + ext;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+});
+
+resetBtn.addEventListener('click', () => {
+  originalImage = null;
+  compressedBlob = null;
+  panel.classList.remove('show');
+  fileInput.value = '';
+});
+</script>
+</body>
+</html>
