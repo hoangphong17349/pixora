@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chỉnh ảnh nhanh</title>
+<style>
+  :root {
+    --bg: #16171a;
+    --panel: #1e2024;
+    --line: #2c2e33;
+    --text: #e7e6e2;
+    --text-dim: #8b8d92;
+    --accent: #e8a33d;
+    --accent-dim: #4a3a20;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+  }
+
+  .app {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  header {
+    margin-bottom: 32px;
+  }
+
+  h1 {
+    font-size: 22px;
+    font-weight: 600;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+
+  header p {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin: 0;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+
+  @media (max-width: 760px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  .stage {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    min-height: 420px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .stage.drag-over {
+    border-color: var(--accent);
+    background: #232016;
+  }
+
+  .drop-msg {
+    text-align: center;
+    color: var(--text-dim);
+    padding: 40px;
+    cursor: pointer;
+  }
+
+  .drop-msg .big {
+    font-size: 15px;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .drop-msg .small {
+    font-size: 13px;
+  }
+
+  .drop-msg svg {
+    margin-bottom: 14px;
+    opacity: 0.5;
+  }
+
+  #canvasWrap {
+    width: 100%;
+    height: 100%;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+  }
+
+  #canvasWrap.active { display: flex; }
+
+  canvas {
+    max-width: 100%;
+    max-height: 560px;
+    border-radius: 6px;
+    display: block;
+  }
+
+  input[type="file"] { display: none; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 20px;
+  }
+
+  .panel h2 {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: none;
+    color: var(--text-dim);
+    margin: 0 0 18px;
+  }
+
+  .control {
+    margin-bottom: 20px;
+  }
+
+  .control:last-of-type {
+    margin-bottom: 0;
+  }
+
+  .control-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+    font-size: 13.5px;
+  }
+
+  .control-label .right {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+
+  .control-label .value {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .reset-one {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--text-dim);
+    font-size: 12px;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .reset-one:hover { color: var(--text); }
+
+  .reset-one:disabled {
+    opacity: 0.35;
+    cursor: default;
+    text-decoration: none;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--line);
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: 2px solid #16171a;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: 2px solid #16171a;
+  }
+
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 24px;
+  }
+
+  button {
+    font-family: inherit;
+    font-size: 13.5px;
+    border-radius: 7px;
+    padding: 10px 14px;
+    cursor: pointer;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--text);
+    transition: border-color 0.15s ease;
+  }
+
+  button:hover { border-color: var(--text-dim); }
+
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #201603;
+    font-weight: 600;
+    flex: 1;
+  }
+
+  button.primary:hover { border-color: var(--accent); opacity: 0.92; }
+
+  button.ghost {
+    color: var(--text-dim);
+  }
+
+  .hint {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 14px;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Chỉnh ảnh nhanh</h1>
+    <p>Kéo thả hoặc tải ảnh lên, sau đó chỉnh độ sáng, tương phản và độ bão hòa.</p>
+  </header>
+
+  <div class="layout">
+    <div class="stage" id="stage">
+      <div class="drop-msg" id="dropMsg">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M12 16V4M12 4L7 9M12 4l5 5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div class="big">Kéo thả ảnh vào đây</div>
+        <div class="small">hoặc bấm để chọn tệp từ máy</div>
+      </div>
+      <div id="canvasWrap">
+        <canvas id="canvas"></canvas>
+      </div>
+    </div>
+    <input type="file" id="fileInput" accept="image/*">
+
+    <div class="panel">
+      <h2>Điều chỉnh</h2>
+
+      <div class="control">
+        <div class="control-label">
+          <span>Độ sáng</span>
+          <span class="right">
+            <span class="value" id="brightnessVal">0</span>
+            <button class="reset-one" data-target="brightness" disabled>Đặt lại</button>
+          </span>
+        </div>
+        <input type="range" id="brightness" min="-100" max="100" value="0">
+      </div>
+
+      <div class="control">
+        <div class="control-label">
+          <span>Độ tương phản</span>
+          <span class="right">
+            <span class="value" id="contrastVal">0</span>
+            <button class="reset-one" data-target="contrast" disabled>Đặt lại</button>
+          </span>
+        </div>
+        <input type="range" id="contrast" min="-100" max="100" value="0">
+      </div>
+
+      <div class="control">
+        <div class="control-label">
+          <span>Độ bão hòa</span>
+          <span class="right">
+            <span class="value" id="saturationVal">0</span>
+            <button class="reset-one" data-target="saturation" disabled>Đặt lại</button>
+          </span>
+        </div>
+        <input type="range" id="saturation" min="-100" max="100" value="0">
+      </div>
+
+      <div class="btn-row">
+        <button class="ghost" id="changeBtn" disabled>Chọn ảnh khác</button>
+        <button class="primary" id="downloadBtn" disabled>Tải ảnh xuống</button>
+      </div>
+
+      <div class="hint">Ảnh xử lý hoàn toàn trong trình duyệt của bạn, không được tải lên máy chủ nào.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const stage = document.getElementById('stage');
+  const dropMsg = document.getElementById('dropMsg');
+  const canvasWrap = document.getElementById('canvasWrap');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const fileInput = document.getElementById('fileInput');
+
+  const brightness = document.getElementById('brightness');
+  const contrast = document.getElementById('contrast');
+  const saturation = document.getElementById('saturation');
+  const brightnessVal = document.getElementById('brightnessVal');
+  const contrastVal = document.getElementById('contrastVal');
+  const saturationVal = document.getElementById('saturationVal');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const changeBtn = document.getElementById('changeBtn');
+  const resetButtons = document.querySelectorAll('.reset-one');
+  const sliders = { brightness, contrast, saturation };
+
+  let img = null;
+
+  function loadFile(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const image = new Image();
+      image.onload = () => {
+        img = image;
+        const maxW = 1400;
+        const scale = img.width > maxW ? maxW / img.width : 1;
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        dropMsg.style.display = 'none';
+        canvasWrap.classList.add('active');
+        downloadBtn.disabled = false;
+        changeBtn.disabled = false;
+        render();
+      };
+      image.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function render() {
+    if (!img) return;
+    const b = 100 + parseInt(brightness.value, 10);
+    const c = 100 + parseInt(contrast.value, 10);
+    const s = 100 + parseInt(saturation.value, 10);
+    ctx.filter = `brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  }
+
+  function updateLabels() {
+    brightnessVal.textContent = brightness.value;
+    contrastVal.textContent = contrast.value;
+    saturationVal.textContent = saturation.value;
+  }
+
+  function updateResetButtons() {
+    resetButtons.forEach((btn) => {
+      const slider = sliders[btn.dataset.target];
+      btn.disabled = parseInt(slider.value, 10) === 0;
+    });
+  }
+
+  Object.values(sliders).forEach((slider) => {
+    slider.addEventListener('input', () => {
+      updateLabels();
+      updateResetButtons();
+      render();
+    });
+  });
+
+  resetButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const slider = sliders[btn.dataset.target];
+      slider.value = 0;
+      updateLabels();
+      updateResetButtons();
+      render();
+    });
+  });
+
+  downloadBtn.addEventListener('click', () => {
+    const link = document.createElement('a');
+    link.download = 'anh-da-chinh-sua.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  });
+
+  dropMsg.addEventListener('click', () => fileInput.click());
+  changeBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => loadFile(e.target.files[0]));
+
+  ['dragenter', 'dragover'].forEach((evt) => {
+    stage.addEventListener(evt, (e) => {
+      e.preventDefault();
+      stage.classList.add('drag-over');
+    });
+  });
+
+  ['dragleave', 'drop'].forEach((evt) => {
+    stage.addEventListener(evt, (e) => {
+      e.preventDefault();
+      stage.classList.remove('drag-over');
+    });
+  });
+
+  stage.addEventListener('drop', (e) => {
+    const file = e.dataTransfer.files[0];
+    loadFile(file);
+  });
+
+  updateLabels();
+  updateResetButtons();
+</script>
+</body>
+</html>
