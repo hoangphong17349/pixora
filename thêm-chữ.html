@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thêm chữ lên ảnh</title>
+<style>
+  :root{
+    --bg:#f4f5f7;
+    --panel:#ffffff;
+    --border:#e2e4e9;
+    --text:#1c1f26;
+    --muted:#6b7280;
+    --accent:#4f46e5;
+    --accent-hover:#4338ca;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+  }
+  header{
+    padding:20px 24px;
+    background:var(--panel);
+    border-bottom:1px solid var(--border);
+  }
+  header h1{
+    margin:0;
+    font-size:20px;
+    font-weight:700;
+  }
+  header p{
+    margin:4px 0 0;
+    color:var(--muted);
+    font-size:14px;
+  }
+  .layout{
+    display:flex;
+    gap:20px;
+    padding:20px;
+    max-width:1300px;
+    margin:0 auto;
+    flex-wrap:wrap;
+  }
+  .canvas-area{
+    flex:1 1 600px;
+    min-width:300px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  #dropZone{
+    width:100%;
+    border:2px dashed var(--border);
+    border-radius:12px;
+    background:var(--panel);
+    min-height:400px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    gap:10px;
+    color:var(--muted);
+    cursor:pointer;
+    transition:border-color .15s, background .15s;
+    text-align:center;
+    padding:20px;
+  }
+  #dropZone.dragover{
+    border-color:var(--accent);
+    background:#eef2ff;
+  }
+  #dropZone svg{ width:48px; height:48px; opacity:.5; }
+  #canvasWrap{
+    position:relative;
+    max-width:100%;
+    display:none;
+    border-radius:12px;
+    overflow:hidden;
+    box-shadow:0 2px 10px rgba(0,0,0,0.08);
+    background:#000;
+    touch-action:none;
+  }
+  #imgCanvas{
+    display:block;
+    max-width:100%;
+    height:auto;
+  }
+  .text-layer{
+    position:absolute;
+    top:0; left:0;
+    width:100%; height:100%;
+    pointer-events:none;
+  }
+  .draggable-text{
+    position:absolute;
+    pointer-events:auto;
+    cursor:move;
+    white-space:nowrap;
+    user-select:none;
+    padding:2px 4px;
+    border:1px dashed transparent;
+  }
+  .draggable-text.selected{
+    border-color:var(--accent);
+  }
+  .toolbar-actions{
+    margin-top:14px;
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    width:100%;
+    justify-content:center;
+  }
+  button{
+    font-family:inherit;
+    font-size:14px;
+    font-weight:600;
+    padding:10px 16px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:var(--panel);
+    color:var(--text);
+    cursor:pointer;
+    transition:background .15s, border-color .15s;
+  }
+  button:hover{ background:#f0f1f3; }
+  button.primary{
+    background:var(--accent);
+    color:#fff;
+    border-color:var(--accent);
+  }
+  button.primary:hover{ background:var(--accent-hover); }
+  button:disabled{ opacity:.5; cursor:not-allowed; }
+
+  .panel{
+    flex:0 0 300px;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:18px;
+    height:fit-content;
+  }
+  .panel h2{
+    font-size:15px;
+    margin:0 0 14px;
+  }
+  .field{
+    margin-bottom:14px;
+  }
+  .field label{
+    display:block;
+    font-size:12px;
+    font-weight:600;
+    color:var(--muted);
+    margin-bottom:6px;
+  }
+  .field input[type="text"],
+  .field textarea,
+  .field select{
+    width:100%;
+    padding:8px 10px;
+    border:1px solid var(--border);
+    border-radius:6px;
+    font-size:14px;
+    font-family:inherit;
+    resize:vertical;
+  }
+  .row{
+    display:flex;
+    gap:10px;
+  }
+  .row .field{ flex:1; }
+  .field input[type="color"]{
+    width:100%;
+    height:36px;
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:2px;
+    cursor:pointer;
+  }
+  .field input[type="range"]{
+    width:100%;
+  }
+  .range-val{
+    font-size:12px;
+    color:var(--muted);
+    float:right;
+  }
+  .field-label-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:6px;
+  }
+  .field-label-row label{
+    margin:0;
+  }
+  .field-label-row .label-right{
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .btn-reset{
+    border:none;
+    background:transparent;
+    color:var(--accent);
+    font-size:12px;
+    font-weight:600;
+    padding:0 0 0 4px;
+    cursor:pointer;
+    line-height:1;
+  }
+  .btn-reset:hover{
+    color:var(--accent-hover);
+    text-decoration:underline;
+  }
+  .hint{
+    font-size:12px;
+    color:var(--muted);
+    line-height:1.5;
+    margin-top:10px;
+  }
+  #fileInput{ display:none; }
+  .stroke-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:13px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🖼️ Thêm chữ lên ảnh</h1>
+  <p>Kéo thả hoặc tải ảnh lên, thêm chữ, chỉnh sửa rồi tải kết quả về máy.</p>
+</header>
+
+<div class="layout">
+  <div class="canvas-area">
+    <div id="dropZone">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M12 16V4m0 0l-4 4m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div><strong>Kéo thả ảnh vào đây</strong></div>
+      <div>hoặc bấm để chọn ảnh từ máy</div>
+      <input type="file" id="fileInput" accept="image/*">
+    </div>
+
+    <div id="canvasWrap">
+      <canvas id="imgCanvas"></canvas>
+      <div class="text-layer" id="textLayer"></div>
+    </div>
+
+    <div class="toolbar-actions">
+      <button id="btnChangeImg" disabled>🔄 Đổi ảnh khác</button>
+      <button id="btnAddText" class="primary" disabled>➕ Thêm chữ</button>
+      <button id="btnDelText" disabled>🗑️ Xóa chữ đang chọn</button>
+      <button id="btnDownload" disabled>⬇️ Tải ảnh về</button>
+    </div>
+  </div>
+
+  <div class="panel" id="stylePanel" style="display:none;">
+    <h2>Tùy chỉnh chữ</h2>
+
+    <div class="field">
+      <label>Nội dung</label>
+      <textarea id="textContent" rows="3" placeholder="Nhập chữ..."></textarea>
+    </div>
+
+    <div class="field">
+      <label>Font chữ</label>
+      <select id="fontFamily">
+        <option value="Arial, sans-serif">Arial</option>
+        <option value="'Times New Roman', serif">Times New Roman</option>
+        <option value="'Courier New', monospace">Courier New</option>
+        <option value="Georgia, serif">Georgia</option>
+        <option value="Verdana, sans-serif">Verdana</option>
+        <option value="'Comic Sans MS', cursive">Comic Sans MS</option>
+        <option value="Impact, sans-serif">Impact</option>
+        <option value="'Brush Script MT', cursive">Brush Script MT</option>
+      </select>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <div class="field-label-row">
+          <label>Cỡ chữ</label>
+          <span class="label-right">
+            <span class="range-val" id="fontSizeVal">40px</span>
+            <button type="button" class="btn-reset" id="resetFontSize" title="Đặt lại cỡ chữ">↺ Đặt lại</button>
+          </span>
+        </div>
+        <input type="range" id="fontSize" min="10" max="200" value="40">
+      </div>
+      <div class="field">
+        <div class="field-label-row">
+          <label>Xoay</label>
+          <span class="label-right">
+            <span class="range-val" id="rotateVal">0°</span>
+            <button type="button" class="btn-reset" id="resetRotate" title="Đặt lại góc xoay">↺ Đặt lại</button>
+          </span>
+        </div>
+        <input type="range" id="rotate" min="-180" max="180" value="0">
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>Màu chữ</label>
+        <input type="color" id="textColor" value="#ffffff">
+      </div>
+      <div class="field">
+        <label>Độ đậm</label>
+        <select id="fontWeight">
+          <option value="normal">Thường</option>
+          <option value="bold" selected>Đậm</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="stroke-row">
+        <input type="checkbox" id="strokeEnabled">
+        <label for="strokeEnabled" style="margin:0;">Viền chữ</label>
+      </div>
+    </div>
+    <div class="row" id="strokeOptions" style="display:none;">
+      <div class="field">
+        <label>Màu viền</label>
+        <input type="color" id="strokeColor" value="#000000">
+      </div>
+      <div class="field">
+        <div class="field-label-row">
+          <label>Độ dày</label>
+          <span class="label-right">
+            <span class="range-val" id="strokeWidthVal">2px</span>
+            <button type="button" class="btn-reset" id="resetStrokeWidth" title="Đặt lại độ dày viền">↺ Đặt lại</button>
+          </span>
+        </div>
+        <input type="range" id="strokeWidth" min="1" max="10" value="2">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Độ mờ <span class="range-val" id="opacityVal">100%</span></label>
+      <input type="range" id="opacity" min="0" max="100" value="100">
+    </div>
+
+    <div class="hint">💡 Kéo chữ trực tiếp trên ảnh để di chuyển vị trí. Bấm vào chữ để chọn và chỉnh sửa.</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  const canvasWrap = document.getElementById('canvasWrap');
+  const canvas = document.getElementById('imgCanvas');
+  const ctx = canvas.getContext('2d');
+  const textLayer = document.getElementById('textLayer');
+  const stylePanel = document.getElementById('stylePanel');
+
+  const btnChangeImg = document.getElementById('btnChangeImg');
+  const btnAddText = document.getElementById('btnAddText');
+  const btnDelText = document.getElementById('btnDelText');
+  const btnDownload = document.getElementById('btnDownload');
+
+  const textContent = document.getElementById('textContent');
+  const fontFamily = document.getElementById('fontFamily');
+  const fontSize = document.getElementById('fontSize');
+  const fontSizeVal = document.getElementById('fontSizeVal');
+  const rotate = document.getElementById('rotate');
+  const rotateVal = document.getElementById('rotateVal');
+  const textColor = document.getElementById('textColor');
+  const fontWeight = document.getElementById('fontWeight');
+  const strokeEnabled = document.getElementById('strokeEnabled');
+  const strokeOptions = document.getElementById('strokeOptions');
+  const strokeColor = document.getElementById('strokeColor');
+  const strokeWidth = document.getElementById('strokeWidth');
+  const strokeWidthVal = document.getElementById('strokeWidthVal');
+  const opacity = document.getElementById('opacity');
+  const opacityVal = document.getElementById('opacityVal');
+
+  const resetFontSize = document.getElementById('resetFontSize');
+  const resetRotate = document.getElementById('resetRotate');
+  const resetStrokeWidth = document.getElementById('resetStrokeWidth');
+
+  // Giá trị mặc định cho từng thuộc tính (dùng khi tạo chữ mới và khi bấm "Đặt lại")
+  const DEFAULTS = {
+    fontSize: 40,
+    rotate: 0,
+    strokeWidth: 2
+  };
+
+  let baseImage = null;
+  let textItems = []; // {id, text, x, y (percent 0-100), fontFamily, fontSize, color, weight, rotate, stroke, strokeColor, strokeWidth, opacity}
+  let selectedId = null;
+  let idCounter = 0;
+
+  // ---------- Load ảnh ----------
+  function loadImageFile(file){
+    if(!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = function(e){
+      const img = new Image();
+      img.onload = function(){
+        baseImage = img;
+        setupCanvas();
+        dropZone.style.display = 'none';
+        canvasWrap.style.display = 'block';
+        btnChangeImg.disabled = false;
+        btnAddText.disabled = false;
+        btnDownload.disabled = false;
+        textItems = [];
+        selectedId = null;
+        renderTextLayer();
+        stylePanel.style.display = 'none';
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function setupCanvas(){
+    const maxW = 900;
+    let w = baseImage.width;
+    let h = baseImage.height;
+    if(w > maxW){
+      h = h * (maxW / w);
+      w = maxW;
+    }
+    canvas.width = w;
+    canvas.height = h;
+    ctx.drawImage(baseImage, 0, 0, w, h);
+  }
+
+  dropZone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => {
+    if(e.target.files[0]) loadImageFile(e.target.files[0]);
+  });
+
+  ['dragenter','dragover'].forEach(evt=>{
+    dropZone.addEventListener(evt, (e)=>{
+      e.preventDefault(); e.stopPropagation();
+      dropZone.classList.add('dragover');
+    });
+  });
+  ['dragleave','drop'].forEach(evt=>{
+    dropZone.addEventListener(evt, (e)=>{
+      e.preventDefault(); e.stopPropagation();
+      dropZone.classList.remove('dragover');
+    });
+  });
+  dropZone.addEventListener('drop', (e)=>{
+    const file = e.dataTransfer.files[0];
+    if(file) loadImageFile(file);
+  });
+
+  // Cho phép kéo thả ảnh mới vào cả vùng canvas
+  canvasWrap.addEventListener('dragover', (e)=> e.preventDefault());
+  canvasWrap.addEventListener('drop', (e)=>{
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if(file) loadImageFile(file);
+  });
+
+  btnChangeImg.addEventListener('click', ()=>{
+    // Mở hộp thoại chọn ảnh ngay, ảnh mới sẽ thay thế ảnh cũ sau khi chọn xong
+    fileInput.value = '';
+    fileInput.click();
+  });
+
+  // ---------- Text items ----------
+  function addTextItem(){
+    const item = {
+      id: 'txt' + (idCounter++),
+      text: 'Chữ của bạn',
+      x: 50, y: 50,
+      fontFamily: fontFamily.value,
+      fontSize: DEFAULTS.fontSize,
+      color: '#ffffff',
+      weight: 'bold',
+      rotate: DEFAULTS.rotate,
+      stroke: false,
+      strokeColor: '#000000',
+      strokeWidth: DEFAULTS.strokeWidth,
+      opacity: 100
+    };
+    textItems.push(item);
+    selectItem(item.id);
+    renderTextLayer();
+  }
+  btnAddText.addEventListener('click', addTextItem);
+
+  btnDelText.addEventListener('click', ()=>{
+    if(!selectedId) return;
+    textItems = textItems.filter(t => t.id !== selectedId);
+    selectedId = null;
+    stylePanel.style.display = 'none';
+    btnDelText.disabled = true;
+    renderTextLayer();
+  });
+
+  function getSelected(){
+    return textItems.find(t => t.id === selectedId);
+  }
+
+  function selectItem(id){
+    selectedId = id;
+    const item = getSelected();
+    if(!item){
+      stylePanel.style.display = 'none';
+      btnDelText.disabled = true;
+      return;
+    }
+    stylePanel.style.display = 'block';
+    btnDelText.disabled = false;
+    // fill panel
+    textContent.value = item.text;
+    fontFamily.value = item.fontFamily;
+    fontSize.value = item.fontSize;
+    fontSizeVal.textContent = item.fontSize + 'px';
+    rotate.value = item.rotate;
+    rotateVal.textContent = item.rotate + '°';
+    textColor.value = item.color;
+    fontWeight.value = item.weight;
+    strokeEnabled.checked = item.stroke;
+    strokeOptions.style.display = item.stroke ? 'flex' : 'none';
+    strokeColor.value = item.strokeColor;
+    strokeWidth.value = item.strokeWidth;
+    strokeWidthVal.textContent = item.strokeWidth + 'px';
+    opacity.value = item.opacity;
+    opacityVal.textContent = item.opacity + '%';
+  }
+
+  function updateSelected(prop, value){
+    const item = getSelected();
+    if(!item) return;
+    item[prop] = value;
+    renderTextLayer();
+  }
+
+  textContent.addEventListener('input', e => updateSelected('text', e.target.value));
+  fontFamily.addEventListener('change', e => updateSelected('fontFamily', e.target.value));
+  fontSize.addEventListener('input', e => {
+    fontSizeVal.textContent = e.target.value + 'px';
+    updateSelected('fontSize', parseInt(e.target.value));
+  });
+  rotate.addEventListener('input', e => {
+    rotateVal.textContent = e.target.value + '°';
+    updateSelected('rotate', parseInt(e.target.value));
+  });
+  textColor.addEventListener('input', e => updateSelected('color', e.target.value));
+  fontWeight.addEventListener('change', e => updateSelected('weight', e.target.value));
+  strokeEnabled.addEventListener('change', e => {
+    strokeOptions.style.display = e.target.checked ? 'flex' : 'none';
+    updateSelected('stroke', e.target.checked);
+  });
+  strokeColor.addEventListener('input', e => updateSelected('strokeColor', e.target.value));
+  strokeWidth.addEventListener('input', e => {
+    strokeWidthVal.textContent = e.target.value + 'px';
+    updateSelected('strokeWidth', parseInt(e.target.value));
+  });
+  opacity.addEventListener('input', e => {
+    opacityVal.textContent = e.target.value + '%';
+    updateSelected('opacity', parseInt(e.target.value));
+  });
+
+  // ---------- 3 nút đặt lại, hoạt động độc lập với nhau ----------
+  resetFontSize.addEventListener('click', () => {
+    fontSize.value = DEFAULTS.fontSize;
+    fontSizeVal.textContent = DEFAULTS.fontSize + 'px';
+    updateSelected('fontSize', DEFAULTS.fontSize);
+  });
+
+  resetRotate.addEventListener('click', () => {
+    rotate.value = DEFAULTS.rotate;
+    rotateVal.textContent = DEFAULTS.rotate + '°';
+    updateSelected('rotate', DEFAULTS.rotate);
+  });
+
+  resetStrokeWidth.addEventListener('click', () => {
+    strokeWidth.value = DEFAULTS.strokeWidth;
+    strokeWidthVal.textContent = DEFAULTS.strokeWidth + 'px';
+    updateSelected('strokeWidth', DEFAULTS.strokeWidth);
+  });
+
+  // ---------- Render text layer (DOM, kéo thả) ----------
+  function renderTextLayer(){
+    textLayer.innerHTML = '';
+    textItems.forEach(item => {
+      const el = document.createElement('div');
+      el.className = 'draggable-text' + (item.id === selectedId ? ' selected' : '');
+      el.textContent = item.text;
+      el.style.left = item.x + '%';
+      el.style.top = item.y + '%';
+      el.style.transform = `translate(-50%, -50%) rotate(${item.rotate}deg)`;
+      el.style.fontFamily = item.fontFamily;
+      el.style.fontSize = (item.fontSize * (canvas.clientWidth / canvas.width || 1)) + 'px';
+      el.style.color = item.color;
+      el.style.fontWeight = item.weight;
+      el.style.opacity = item.opacity / 100;
+      if(item.stroke){
+        el.style.webkitTextStroke = `${item.strokeWidth}px ${item.strokeColor}`;
+      } else {
+        el.style.webkitTextStroke = '0px transparent';
+      }
+      el.dataset.id = item.id;
+
+      el.addEventListener('mousedown', startDrag);
+      el.addEventListener('touchstart', startDrag, {passive:false});
+      el.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        selectItem(item.id);
+        renderTextLayer();
+      });
+
+      textLayer.appendChild(el);
+    });
+  }
+
+  let dragState = null;
+  function startDrag(e){
+    e.preventDefault();
+    e.stopPropagation();
+    const id = e.currentTarget.dataset.id;
+    selectItem(id);
+    renderTextLayer();
+    const item = getSelected();
+    const rect = canvasWrap.getBoundingClientRect();
+    dragState = { id, rect };
+    document.addEventListener('mousemove', onDrag);
+    document.addEventListener('touchmove', onDrag, {passive:false});
+    document.addEventListener('mouseup', endDrag);
+    document.addEventListener('touchend', endDrag);
+  }
+
+  function onDrag(e){
+    if(!dragState) return;
+    e.preventDefault();
+    const point = e.touches ? e.touches[0] : e;
+    const rect = dragState.rect;
+    let x = ((point.clientX - rect.left) / rect.width) * 100;
+    let y = ((point.clientY - rect.top) / rect.height) * 100;
+    x = Math.max(0, Math.min(100, x));
+    y = Math.max(0, Math.min(100, y));
+    const item = textItems.find(t => t.id === dragState.id);
+    if(item){
+      item.x = x;
+      item.y = y;
+      renderTextLayer();
+    }
+  }
+
+  function endDrag(){
+    dragState = null;
+    document.removeEventListener('mousemove', onDrag);
+    document.removeEventListener('touchmove', onDrag);
+    document.removeEventListener('mouseup', endDrag);
+    document.removeEventListener('touchend', endDrag);
+  }
+
+  textLayer.addEventListener('click', ()=>{
+    selectedId = null;
+    stylePanel.style.display = 'none';
+    btnDelText.disabled = true;
+    renderTextLayer();
+  });
+
+  // Re-render text sizes on window resize (vì % dùng clientWidth)
+  window.addEventListener('resize', renderTextLayer);
+
+  // ---------- Tải ảnh về ----------
+  btnDownload.addEventListener('click', ()=>{
+    if(!baseImage) return;
+    // Vẽ lại trên canvas độ phân giải gốc để chất lượng tốt nhất
+    const outCanvas = document.createElement('canvas');
+    outCanvas.width = baseImage.width;
+    outCanvas.height = baseImage.height;
+    const outCtx = outCanvas.getContext('2d');
+    outCtx.drawImage(baseImage, 0, 0, outCanvas.width, outCanvas.height);
+
+    const scale = outCanvas.width / canvas.width;
+
+    textItems.forEach(item => {
+      outCtx.save();
+      const x = (item.x / 100) * outCanvas.width;
+      const y = (item.y / 100) * outCanvas.height;
+      outCtx.translate(x, y);
+      outCtx.rotate(item.rotate * Math.PI / 180);
+      outCtx.globalAlpha = item.opacity / 100;
+      const fSize = item.fontSize * scale;
+      outCtx.font = `${item.weight} ${fSize}px ${item.fontFamily}`;
+      outCtx.textAlign = 'center';
+      outCtx.textBaseline = 'middle';
+      if(item.stroke){
+        outCtx.lineWidth = item.strokeWidth * scale;
+        outCtx.strokeStyle = item.strokeColor;
+        outCtx.strokeText(item.text, 0, 0);
+      }
+      outCtx.fillStyle = item.color;
+      outCtx.fillText(item.text, 0, 0);
+      outCtx.restore();
+    });
+
+    const link = document.createElement('a');
+    link.download = 'anh-co-chu.png';
+    link.href = outCanvas.toDataURL('image/png');
+    link.click();
+  });
+
+})();
+</script>
+
+</body>
+</html>
