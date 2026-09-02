@@ -295,9 +295,42 @@
 ---------------------------------------------------- */
 const TEMPLATES = [
   {
+    id:'row2', name:'2 ảnh — chia dọc',
+    cols:2, rows:1,
+    cells:[
+      {area:'1 / 1 / 2 / 2'},
+      {area:'1 / 2 / 2 / 3'}
+    ]
+  },
+  {
+    id:'col2', name:'2 ảnh — chia ngang',
+    cols:1, rows:2,
+    cells:[
+      {area:'1 / 1 / 2 / 2'},
+      {area:'2 / 1 / 3 / 2'}
+    ]
+  },
+  {
+    id:'row3', name:'3 ảnh — chia dọc',
+    cols:3, rows:1,
+    cells:[
+      {area:'1 / 1 / 2 / 2'},
+      {area:'1 / 2 / 2 / 3'},
+      {area:'1 / 3 / 2 / 4'}
+    ]
+  },
+  {
+    id:'col3', name:'3 ảnh — chia ngang',
+    cols:1, rows:3,
+    cells:[
+      {area:'1 / 1 / 2 / 2'},
+      {area:'2 / 1 / 3 / 2'},
+      {area:'3 / 1 / 4 / 2'}
+    ]
+  },
+  {
     id:'grid2x2', name:'Lưới 2×2',
     cols:2, rows:2,
-    areas:['a a','a a'].length ? null : null, // không dùng, để trống
     cells:[
       {area:'1 / 1 / 2 / 2'},
       {area:'1 / 2 / 2 / 3'},
@@ -312,24 +345,6 @@ const TEMPLATES = [
       const r=Math.floor(i/3)+1, c=(i%3)+1;
       return {area:`${r} / ${c} / ${r+1} / ${c+1}`};
     })
-  },
-  {
-    id:'row3', name:'1 hàng — 3 ảnh',
-    cols:3, rows:1,
-    cells:[
-      {area:'1 / 1 / 2 / 2'},
-      {area:'1 / 2 / 2 / 3'},
-      {area:'1 / 3 / 2 / 4'}
-    ]
-  },
-  {
-    id:'col3', name:'1 cột — 3 ảnh',
-    cols:1, rows:3,
-    cells:[
-      {area:'1 / 1 / 2 / 2'},
-      {area:'2 / 1 / 3 / 2'},
-      {area:'3 / 1 / 4 / 2'}
-    ]
   },
   {
     id:'bigleft', name:'1 lớn trái + 2 nhỏ phải',
