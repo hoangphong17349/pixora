@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Đổi kích thước ảnh</title>
+<style>
+  :root{
+    --bg:#f4f5f7;
+    --panel:#ffffff;
+    --border:#e2e4e9;
+    --text:#1c1f26;
+    --muted:#6b7280;
+    --accent:#4f46e5;
+    --accent-hover:#4338ca;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+  }
+  header{
+    padding:20px 24px;
+    background:var(--panel);
+    border-bottom:1px solid var(--border);
+  }
+  header h1{
+    margin:0;
+    font-size:20px;
+    font-weight:700;
+  }
+  header p{
+    margin:4px 0 0;
+    color:var(--muted);
+    font-size:14px;
+  }
+  .layout{
+    display:flex;
+    gap:20px;
+    padding:20px;
+    max-width:1300px;
+    margin:0 auto;
+    flex-wrap:wrap;
+  }
+  .preview-area{
+    flex:1 1 600px;
+    min-width:300px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  #dropZone{
+    width:100%;
+    border:2px dashed var(--border);
+    border-radius:12px;
+    background:var(--panel);
+    min-height:400px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    gap:10px;
+    color:var(--muted);
+    cursor:pointer;
+    transition:border-color .15s, background .15s;
+    text-align:center;
+    padding:20px;
+  }
+  #dropZone.dragover{
+    border-color:var(--accent);
+    background:#eef2ff;
+  }
+  #dropZone svg{ width:48px; height:48px; opacity:.5; }
+  #previewWrap{
+    width:100%;
+    display:none;
+    border-radius:12px;
+    overflow:hidden;
+    box-shadow:0 2px 10px rgba(0,0,0,0.08);
+    background:repeating-conic-gradient(#e5e7eb 0% 25%, #ffffff 0% 50%) 50% / 20px 20px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:300px;
+    max-height:500px;
+  }
+  #previewCanvas{
+    max-width:100%;
+    max-height:500px;
+    display:block;
+  }
+  .toolbar-actions{
+    margin-top:14px;
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    width:100%;
+    justify-content:center;
+  }
+  button{
+    font-family:inherit;
+    font-size:14px;
+    font-weight:600;
+    padding:10px 16px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:var(--panel);
+    color:var(--text);
+    cursor:pointer;
+    transition:background .15s, border-color .15s;
+  }
+  button:hover{ background:#f0f1f3; }
+  button.primary{
+    background:var(--accent);
+    color:#fff;
+    border-color:var(--accent);
+  }
+  button.primary:hover{ background:var(--accent-hover); }
+  button:disabled{ opacity:.5; cursor:not-allowed; }
+
+  .panel{
+    flex:0 0 300px;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:18px;
+    height:fit-content;
+  }
+  .panel h2{
+    font-size:15px;
+    margin:0 0 14px;
+  }
+  .field{
+    margin-bottom:14px;
+  }
+  .field label{
+    display:block;
+    font-size:12px;
+    font-weight:600;
+    color:var(--muted);
+    margin-bottom:6px;
+  }
+  .field input[type="number"],
+  .field select{
+    width:100%;
+    padding:8px 10px;
+    border:1px solid var(--border);
+    border-radius:6px;
+    font-size:14px;
+    font-family:inherit;
+  }
+  .dim-row{
+    display:flex;
+    align-items:end;
+    gap:10px;
+  }
+  .dim-row .field{ flex:1; margin-bottom:0; }
+  .divider{
+    height:1px;
+    background:var(--border);
+    margin:16px 0;
+  }
+  .checkbox-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:13px;
+    margin-bottom:14px;
+  }
+  .checkbox-row input{ margin:0; }
+  .info-box{
+    background:#f8f9fb;
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:12px;
+    font-size:13px;
+    color:var(--muted);
+    line-height:1.6;
+  }
+  .info-box strong{ color:var(--text); }
+  .preset-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-bottom:14px;
+  }
+  .preset-btn{
+    font-size:12px;
+    padding:8px 6px;
+    text-align:center;
+  }
+  #fileInput{ display:none; }
+  .hint{
+    font-size:12px;
+    color:var(--muted);
+    line-height:1.5;
+    margin-top:10px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📐 Đổi kích thước ảnh</h1>
+  <p>Kéo thả hoặc tải ảnh lên, nhập kích thước pixel mới rồi tải kết quả về máy.</p>
+</header>
+
+<div class="layout">
+  <div class="preview-area">
+    <div id="dropZone">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M12 16V4m0 0l-4 4m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div><strong>Kéo thả ảnh vào đây</strong></div>
+      <div>hoặc bấm để chọn ảnh từ máy</div>
+      <input type="file" id="fileInput" accept="image/*">
+    </div>
+
+    <div id="previewWrap">
+      <canvas id="previewCanvas"></canvas>
+    </div>
+
+    <div class="toolbar-actions">
+      <button id="btnChangeImg" disabled>🔄 Đổi ảnh khác</button>
+      <button id="btnDownload" class="primary" disabled>⬇️ Tải ảnh về</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Kích thước</h2>
+
+    <div class="info-box" id="originalInfo" style="margin-bottom:14px;">
+      Chưa có ảnh nào được tải lên.
+    </div>
+
+    <div class="dim-row" style="margin-bottom:10px;">
+      <div class="field">
+        <label>Rộng (px)</label>
+        <input type="number" id="widthInput" min="1" max="10000" disabled>
+      </div>
+      <div class="field">
+        <label>Cao (px)</label>
+        <input type="number" id="heightInput" min="1" max="10000" disabled>
+      </div>
+    </div>
+
+    <button id="btnReset" style="width:100%; margin-bottom:14px;" disabled>↺ Đặt lại kích thước gốc</button>
+
+    <div class="checkbox-row">
+      <input type="checkbox" id="dontEnlarge">
+      <label for="dontEnlarge" style="margin:0;">Không phóng to quá kích thước gốc</label>
+    </div>
+
+    <div class="divider"></div>
+
+    <label style="display:block; font-size:12px; font-weight:600; color:var(--muted); margin-bottom:8px;">Kích thước có sẵn</label>
+    <div class="preset-grid">
+      <button class="preset-btn" data-w="1920" data-h="1080">1920×1080</button>
+      <button class="preset-btn" data-w="1280" data-h="720">1280×720</button>
+      <button class="preset-btn" data-w="1080" data-h="1080">1080×1080</button>
+      <button class="preset-btn" data-w="800" data-h="600">800×600</button>
+      <button class="preset-btn" data-w="512" data-h="512">512×512</button>
+      <button class="preset-btn" data-w="100" data-h="100">100×100</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="field">
+      <label>Định dạng tải về</label>
+      <select id="formatSelect">
+        <option value="image/png">PNG</option>
+        <option value="image/jpeg">JPEG</option>
+        <option value="image/webp">WebP</option>
+      </select>
+    </div>
+
+    <div class="field" id="qualityField" style="display:none;">
+      <label>Chất lượng <span id="qualityVal">90%</span></label>
+      <input type="range" id="qualitySlider" min="1" max="100" value="90">
+    </div>
+
+    <div class="info-box" id="newSizeInfo" style="display:none;"></div>
+
+  </div>
+</div>
+
+<script>
+(function(){
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  const previewWrap = document.getElementById('previewWrap');
+  const previewCanvas = document.getElementById('previewCanvas');
+  const previewCtx = previewCanvas.getContext('2d');
+
+  const btnChangeImg = document.getElementById('btnChangeImg');
+  const btnDownload = document.getElementById('btnDownload');
+
+  const widthInput = document.getElementById('widthInput');
+  const heightInput = document.getElementById('heightInput');
+  const btnReset = document.getElementById('btnReset');
+  const dontEnlarge = document.getElementById('dontEnlarge');
+  const originalInfo = document.getElementById('originalInfo');
+  const newSizeInfo = document.getElementById('newSizeInfo');
+  const formatSelect = document.getElementById('formatSelect');
+  const qualityField = document.getElementById('qualityField');
+  const qualitySlider = document.getElementById('qualitySlider');
+  const qualityVal = document.getElementById('qualityVal');
+  const presetBtns = document.querySelectorAll('.preset-btn');
+
+  let baseImage = null;
+  let originalWidth = 0;
+  let originalHeight = 0;
+  let originalFileSize = 0;
+
+  // ---------- Load ảnh ----------
+  function loadImageFile(file){
+    if(!file || !file.type.startsWith('image/')) return;
+    originalFileSize = file.size;
+    const reader = new FileReader();
+    reader.onload = function(e){
+      const img = new Image();
+      img.onload = function(){
+        baseImage = img;
+        originalWidth = img.width;
+        originalHeight = img.height;
+
+        widthInput.value = originalWidth;
+        heightInput.value = originalHeight;
+        widthInput.disabled = false;
+        heightInput.disabled = false;
+
+        dropZone.style.display = 'none';
+        previewWrap.style.display = 'flex';
+        btnChangeImg.disabled = false;
+        btnDownload.disabled = false;
+        btnReset.disabled = false;
+
+        originalInfo.innerHTML = `<strong>Kích thước gốc:</strong> ${originalWidth} × ${originalHeight} px<br><strong>Dung lượng gốc:</strong> ${formatBytes(originalFileSize)}`;
+
+        renderPreview();
+        updateNewSizeInfo();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function formatBytes(bytes){
+    if(bytes < 1024) return bytes + ' B';
+    if(bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+    return (bytes/1024/1024).toFixed(2) + ' MB';
+  }
+
+  dropZone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => {
+    if(e.target.files[0]) loadImageFile(e.target.files[0]);
+  });
+
+  ['dragenter','dragover'].forEach(evt=>{
+    dropZone.addEventListener(evt, (e)=>{
+      e.preventDefault(); e.stopPropagation();
+      dropZone.classList.add('dragover');
+    });
+  });
+  ['dragleave','drop'].forEach(evt=>{
+    dropZone.addEventListener(evt, (e)=>{
+      e.preventDefault(); e.stopPropagation();
+      dropZone.classList.remove('dragover');
+    });
+  });
+  dropZone.addEventListener('drop', (e)=>{
+    const file = e.dataTransfer.files[0];
+    if(file) loadImageFile(file);
+  });
+
+  previewWrap.addEventListener('dragover', (e)=> e.preventDefault());
+  previewWrap.addEventListener('drop', (e)=>{
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if(file) loadImageFile(file);
+  });
+
+  btnChangeImg.addEventListener('click', ()=>{
+    fileInput.value = '';
+    fileInput.click();
+  });
+
+  // ---------- Rộng / Cao: mỗi ô độc lập, không tự tính lại ô còn lại ----------
+  widthInput.addEventListener('input', ()=>{
+    if(!baseImage) return;
+    renderPreview();
+    updateNewSizeInfo();
+  });
+
+  heightInput.addEventListener('input', ()=>{
+    if(!baseImage) return;
+    renderPreview();
+    updateNewSizeInfo();
+  });
+
+  btnReset.addEventListener('click', ()=>{
+    if(!baseImage) return;
+    widthInput.value = originalWidth;
+    heightInput.value = originalHeight;
+    renderPreview();
+    updateNewSizeInfo();
+  });
+
+  // ---------- Preset: đặt thẳng cả rộng và cao theo giá trị bấm, không tính theo tỉ lệ ----------
+  presetBtns.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(!baseImage) return;
+      widthInput.value = btn.dataset.w;
+      heightInput.value = btn.dataset.h;
+      renderPreview();
+      updateNewSizeInfo();
+    });
+  });
+
+  // ---------- Định dạng & chất lượng ----------
+  formatSelect.addEventListener('change', ()=>{
+    qualityField.style.display = formatSelect.value === 'image/png' ? 'none' : 'block';
+    renderPreview();
+    updateNewSizeInfo();
+  });
+  qualitySlider.addEventListener('input', ()=>{
+    qualityVal.textContent = qualitySlider.value + '%';
+  });
+
+  dontEnlarge.addEventListener('change', ()=>{
+    renderPreview();
+    updateNewSizeInfo();
+  });
+
+  // ---------- Vẽ ảnh xem trước đúng theo kích thước (và tỉ lệ) sẽ tải về ----------
+  function renderPreview(){
+    if(!baseImage) return;
+    const {w, h} = getTargetSize();
+
+    // Thu nhỏ để hiển thị cho nhẹ, nhưng vẫn giữ đúng tỉ lệ rộng:cao thật của w,h
+    // (nếu rộng/cao không cùng tỉ lệ ảnh gốc, ảnh xem trước sẽ bị méo đúng như ảnh tải về)
+    const maxDim = 800;
+    let dispW = w, dispH = h;
+    if(w > maxDim || h > maxDim){
+      const scale = Math.min(maxDim / w, maxDim / h);
+      dispW = Math.max(1, Math.round(w * scale));
+      dispH = Math.max(1, Math.round(h * scale));
+    }
+
+    previewCanvas.width = dispW;
+    previewCanvas.height = dispH;
+
+    previewCtx.clearRect(0, 0, dispW, dispH);
+    if(formatSelect.value === 'image/jpeg'){
+      previewCtx.fillStyle = '#ffffff';
+      previewCtx.fillRect(0, 0, dispW, dispH);
+    }
+    previewCtx.imageSmoothingEnabled = true;
+    previewCtx.imageSmoothingQuality = 'high';
+    previewCtx.drawImage(baseImage, 0, 0, dispW, dispH);
+  }
+
+  function getTargetSize(){
+    let w = parseInt(widthInput.value) || originalWidth;
+    let h = parseInt(heightInput.value) || originalHeight;
+    if(dontEnlarge.checked){
+      if(w > originalWidth) w = originalWidth;
+      if(h > originalHeight) h = originalHeight;
+    }
+    w = Math.max(1, Math.min(10000, w));
+    h = Math.max(1, Math.min(10000, h));
+    return {w, h};
+  }
+
+  function updateNewSizeInfo(){
+    if(!baseImage) return;
+    const {w, h} = getTargetSize();
+    let note = '';
+    if(w !== parseInt(widthInput.value) || h !== parseInt(heightInput.value)){
+      note = `<br><em>(Đã giới hạn để không phóng to quá ảnh gốc)</em>`;
+    }
+    newSizeInfo.style.display = 'block';
+    newSizeInfo.innerHTML = `<strong>Kích thước sau khi đổi:</strong> ${w} × ${h} px${note}`;
+  }
+
+  // ---------- Tải ảnh về ----------
+  btnDownload.addEventListener('click', ()=>{
+    if(!baseImage) return;
+    const {w, h} = getTargetSize();
+
+    const outCanvas = document.createElement('canvas');
+    outCanvas.width = w;
+    outCanvas.height = h;
+    const outCtx = outCanvas.getContext('2d');
+
+    // Nếu xuất JPEG, cần nền trắng vì JPEG không hỗ trợ trong suốt
+    if(formatSelect.value === 'image/jpeg'){
+      outCtx.fillStyle = '#ffffff';
+      outCtx.fillRect(0, 0, w, h);
+    }
+
+    outCtx.imageSmoothingEnabled = true;
+    outCtx.imageSmoothingQuality = 'high';
+    outCtx.drawImage(baseImage, 0, 0, w, h);
+
+    const format = formatSelect.value;
+    const quality = format === 'image/png' ? undefined : qualitySlider.value / 100;
+
+    const ext = format === 'image/png' ? 'png' : (format === 'image/jpeg' ? 'jpg' : 'webp');
+    const link = document.createElement('a');
+    link.download = `anh-${w}x${h}.${ext}`;
+    link.href = outCanvas.toDataURL(format, quality);
+    link.click();
+  });
+
+})();
+</script>
+
+</body>
+</html>
