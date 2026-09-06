@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Magic Brush — Tô để xoá nền</title>
+<style>
+  :root{
+    --bg: #16171b;
+    --panel: #1f2126;
+    --panel-2: #26282f;
+    --line: #35373f;
+    --text: #eceef2;
+    --text-dim: #9a9ea8;
+    --accent: #5ee6c4;
+    --accent-dim: #2c5750;
+    --danger: #e6725e;
+    --erase: #ef6a5a;
+    --erase-dim: #4a2b28;
+    --restore: #4fa3f7;
+    --restore-dim: #223a52;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:28px 16px 60px;
+  }
+  h1{
+    font-size:20px;
+    font-weight:600;
+    letter-spacing:0.2px;
+    margin:0 0 4px;
+  }
+  .sub{
+    color:var(--text-dim);
+    font-size:13.5px;
+    margin:0 0 22px;
+    text-align:center;
+  }
+  .app{
+    width:100%;
+    max-width:960px;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+  .toolbar{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:10px;
+    background: var(--panel);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:12px 14px;
+  }
+  .toolbar .group{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding-right:12px;
+    border-right:1px solid var(--line);
+  }
+  .toolbar .group:last-child{ border-right:none; padding-right:0; }
+  label{ font-size:12.5px; color:var(--text-dim); white-space:nowrap; }
+  input[type=range]{ accent-color: var(--accent); width:110px; }
+  button{
+    font-family:inherit;
+    font-size:13px;
+    border:1px solid var(--line);
+    background: var(--panel-2);
+    color:var(--text);
+    padding:8px 13px;
+    border-radius:8px;
+    cursor:pointer;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  button:hover{ border-color:#4a4d57; }
+  button:disabled{ opacity:.4; cursor:not-allowed; }
+  button.primary{
+    background: var(--accent);
+    color:#0d1512;
+    border-color: var(--accent);
+    font-weight:600;
+  }
+  button.primary:hover{ opacity:.9; }
+  #btnErase.mode-active{
+    border-color: var(--erase);
+    color: var(--erase);
+    background: var(--erase-dim);
+  }
+  #btnRestore.mode-active{
+    border-color: var(--restore);
+    color: var(--restore);
+    background: var(--restore-dim);
+  }
+  .stage{
+    position:relative;
+    background:
+      linear-gradient(45deg,#2a2c32 25%,transparent 25%),
+      linear-gradient(-45deg,#2a2c32 25%,transparent 25%),
+      linear-gradient(45deg,transparent 75%,#2a2c32 75%),
+      linear-gradient(-45deg,transparent 75%,#2a2c32 75%);
+    background-size:20px 20px;
+    background-position:0 0,0 10px,10px -10px,-10px 0px;
+    background-color:#1a1b1f;
+    border:1px dashed var(--line);
+    border-radius:12px;
+    min-height:380px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+    transition: border-color .15s ease, background-color .15s ease;
+  }
+  #dropHint{
+    color: var(--text-dim);
+    font-size:14px;
+    text-align:center;
+    padding:40px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:14px;
+  }
+  #dropHint b{ color:var(--text); font-size:15.5px; }
+  #dropHint .or{ font-size:12px; color:var(--text-dim); }
+  #fileInput{ display:none; }
+  canvas{
+    display:block;
+    max-width:100%;
+    cursor:none;
+    touch-action:none;
+  }
+  .hint-row{
+    font-size:12px;
+    color:var(--text-dim);
+    text-align:center;
+  }
+  .cursor-dot{
+    position:fixed;
+    pointer-events:none;
+    border:1.5px solid var(--erase);
+    border-radius:50%;
+    background: rgba(239,106,90,0.14);
+    z-index:10;
+    display:none;
+    transition: border-color .15s ease, background-color .15s ease;
+  }
+
+  /* Overlay toàn trang khi kéo thả ảnh vào */
+  #dragOverlay{
+    position:fixed;
+    inset:0;
+    background: rgba(22,23,27,0.88);
+    border:3px dashed var(--accent);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:100;
+    pointer-events:none;
+  }
+  #dragOverlay.show{ display:flex; }
+  #dragOverlay .msg{
+    font-size:22px;
+    font-weight:600;
+    color: var(--accent);
+    text-align:center;
+  }
+  #dragOverlay .msg span{
+    display:block;
+    font-size:13px;
+    font-weight:400;
+    color: var(--text-dim);
+    margin-top:6px;
+  }
+
+  /* Nhãn hiện cỡ cọ ngay khi chỉnh */
+  .brush-preview{
+    position:relative;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  #brushSizeLabel{
+    font-size:12.5px;
+    color: var(--text);
+    min-width:34px;
+  }
+
+  /* Vòng tròn xem trước cỡ cọ, hiện tạm thời ngay giữa khung ảnh khi chỉnh thanh trượt */
+  #brushCenterPreview{
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    border-radius:50%;
+    border:2px solid var(--erase);
+    background: rgba(239,106,90,0.14);
+    pointer-events:none;
+    opacity:0;
+    z-index:20;
+    transition: opacity .25s ease, border-color .15s ease, background-color .15s ease, width .05s ease, height .05s ease;
+  }
+  #brushCenterPreview.show{ opacity:1; }
+  #brushCenterPreview .size-tag{
+    position:absolute;
+    top:calc(100% + 8px);
+    left:50%;
+    transform:translateX(-50%);
+    font-size:12px;
+    color: var(--text);
+    background: rgba(0,0,0,0.55);
+    padding:2px 8px;
+    border-radius:6px;
+    white-space:nowrap;
+  }
+</style>
+</head>
+<body>
+
+  <h1>Magic Brush</h1>
+  <p class="sub">Tải ảnh lên, tô lên vùng muốn xoá — vùng được tô sẽ trở nên trong suốt (transparent)</p>
+
+  <div class="app">
+    <div class="toolbar">
+      <div class="group">
+        <button id="btnErase" class="mode-active">🖌 Xoá</button>
+        <button id="btnRestore">↩ Khôi phục</button>
+      </div>
+      <div class="group">
+        <label for="brushSize">Cỡ cọ</label>
+        <div class="brush-preview">
+          <input type="range" id="brushSize" min="5" max="150" value="35">
+          <span id="brushSizeLabel">35px</span>
+        </div>
+      </div>
+      <div class="group">
+        <button id="btnUndo" disabled>Undo (hoàn tác)</button>
+        <button id="btnReset" disabled>Reset</button>
+      </div>
+      <div class="group">
+        <button id="btnDownload" class="primary" disabled>Tải ảnh về (PNG)</button>
+      </div>
+    </div>
+
+    <div class="stage" id="stage">
+      <div id="dropHint">
+        <div>
+          <b>Kéo thả ảnh vào đây</b>
+          <div class="or">(hoặc thả bất kỳ đâu trên trang cũng được)</div>
+        </div>
+        <button id="btnUpload" class="primary">Tải ảnh lên</button>
+        <input type="file" id="fileInput" accept="image/*">
+      </div>
+      <canvas id="canvas" style="display:none;"></canvas>
+      <div id="brushCenterPreview"><span class="size-tag" id="brushCenterPreviewTag">35px</span></div>
+    </div>
+
+    <div class="hint-row">Giữ chuột (hoặc chạm) và kéo để tô lên ảnh. Dùng "Xoá" (đỏ) để xoá nền, "Khôi phục" (xanh) để vẽ lại phần đã xoá.</div>
+  </div>
+
+  <div class="cursor-dot" id="cursorDot"></div>
+
+  <div id="dragOverlay">
+    <div class="msg">Thả ảnh vào đây để tải lên
+      <span>Ảnh sẽ được nhận ngay khi bạn thả tay</span>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const stage = document.getElementById('stage');
+  const dropHint = document.getElementById('dropHint');
+  const fileInput = document.getElementById('fileInput');
+  const btnUpload = document.getElementById('btnUpload');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const brushSizeInput = document.getElementById('brushSize');
+  const btnErase = document.getElementById('btnErase');
+  const btnRestore = document.getElementById('btnRestore');
+  const btnUndo = document.getElementById('btnUndo');
+  const btnReset = document.getElementById('btnReset');
+  const btnDownload = document.getElementById('btnDownload');
+  const cursorDot = document.getElementById('cursorDot');
+  const dragOverlay = document.getElementById('dragOverlay');
+  const brushSizeLabel = document.getElementById('brushSizeLabel');
+  const brushCenterPreview = document.getElementById('brushCenterPreview');
+  const brushCenterPreviewTag = document.getElementById('brushCenterPreviewTag');
+
+  let mode = 'erase'; // 'erase' | 'restore'
+  let originalImageData = null; // giữ ảnh gốc để "khôi phục"
+  let history = [];
+  let drawing = false;
+  let hasImage = false;
+
+  function modeColor(){
+    return mode === 'erase' ? { border: '#ef6a5a', bg: 'rgba(239,106,90,0.14)' }
+                             : { border: '#4fa3f7', bg: 'rgba(79,163,247,0.14)' };
+  }
+
+  function applyModeColor(){
+    const c = modeColor();
+    cursorDot.style.borderColor = c.border;
+    cursorDot.style.backgroundColor = c.bg;
+    brushCenterPreview.style.borderColor = c.border;
+    brushCenterPreview.style.backgroundColor = c.bg;
+  }
+
+  function setMode(newMode){
+    mode = newMode;
+    btnErase.classList.toggle('mode-active', mode === 'erase');
+    btnRestore.classList.toggle('mode-active', mode === 'restore');
+    applyModeColor();
+  }
+  btnErase.addEventListener('click', () => setMode('erase'));
+  btnRestore.addEventListener('click', () => setMode('restore'));
+  applyModeColor();
+
+  // Khi chỉnh thanh trượt, hiện vòng tròn cỡ cọ ngay giữa khung ảnh; chỉ ẩn khi người dùng thả tay ra
+  function updateBrushPreview(){
+    const size = Number(brushSizeInput.value);
+    brushSizeLabel.textContent = size + 'px';
+
+    // quy đổi cỡ cọ theo tỉ lệ hiển thị thực tế của ảnh trên màn hình
+    const rect = canvas.getBoundingClientRect();
+    const scale = (canvas.width && rect.width) ? (rect.width / canvas.width) : 1;
+    const displaySize = size * scale;
+
+    brushCenterPreview.style.width = displaySize + 'px';
+    brushCenterPreview.style.height = displaySize + 'px';
+    brushCenterPreviewTag.textContent = size + 'px';
+    brushCenterPreview.classList.add('show');
+  }
+  function hideBrushPreview(){
+    brushCenterPreview.classList.remove('show');
+  }
+  brushSizeInput.addEventListener('input', updateBrushPreview);
+  brushSizeInput.addEventListener('pointerup', hideBrushPreview);
+  brushSizeInput.addEventListener('mouseup', hideBrushPreview);
+  brushSizeInput.addEventListener('touchend', hideBrushPreview);
+  brushSizeInput.addEventListener('keyup', hideBrushPreview); // khi chỉnh bằng bàn phím (mũi tên trái/phải)
+  brushSizeInput.addEventListener('blur', hideBrushPreview);
+
+  function loadImageFile(file){
+    if (!file || !file.type.startsWith('image/')) return;
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const maxW = 880;
+      let w = img.naturalWidth, h = img.naturalHeight;
+      if (w > maxW){ h = Math.round(h * (maxW / w)); w = maxW; }
+      canvas.width = w;
+      canvas.height = h;
+      ctx.clearRect(0,0,w,h);
+      ctx.drawImage(img, 0, 0, w, h);
+      originalImageData = ctx.getImageData(0,0,w,h);
+      history = [];
+      hasImage = true;
+      dropHint.style.display = 'none';
+      canvas.style.display = 'block';
+      btnUndo.disabled = true;
+      btnReset.disabled = false;
+      btnDownload.disabled = false;
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  }
+
+  btnUpload.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', e => {
+    if (e.target.files[0]) loadImageFile(e.target.files[0]);
+  });
+
+  // Cho phép kéo thả ảnh vào bất kỳ đâu trên trang, không chỉ riêng ô vuông
+  let dragCounter = 0;
+  window.addEventListener('dragenter', e => {
+    e.preventDefault();
+    dragCounter++;
+    dragOverlay.classList.add('show');
+  });
+  window.addEventListener('dragover', e => { e.preventDefault(); });
+  window.addEventListener('dragleave', e => {
+    e.preventDefault();
+    dragCounter--;
+    if (dragCounter <= 0){
+      dragCounter = 0;
+      dragOverlay.classList.remove('show');
+    }
+  });
+  window.addEventListener('drop', e => {
+    e.preventDefault();
+    dragCounter = 0;
+    dragOverlay.classList.remove('show');
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file) loadImageFile(file);
+  });
+
+  function getPos(e){
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+  }
+
+  function paintAt(x, y){
+    const r = Number(brushSizeInput.value) / 2;
+    if (mode === 'erase'){
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    } else {
+      // khôi phục: vẽ lại pixel gốc trong vùng tròn
+      if (!originalImageData) return;
+      const x0 = Math.max(0, Math.floor(x - r));
+      const y0 = Math.max(0, Math.floor(y - r));
+      const x1 = Math.min(canvas.width, Math.ceil(x + r));
+      const y1 = Math.min(canvas.height, Math.ceil(y + r));
+      const w = x1 - x0, h = y1 - y0;
+      if (w <= 0 || h <= 0) return;
+      const patch = ctx.createImageData(w, h);
+      const srcData = originalImageData.data;
+      for (let j = 0; j < h; j++){
+        for (let i = 0; i < w; i++){
+          const px = x0 + i, py = y0 + j;
+          const dist = Math.hypot(px - x, py - y);
+          const di = (j * w + i) * 4;
+          if (dist <= r){
+            const si = (py * canvas.width + px) * 4;
+            patch.data[di] = srcData[si];
+            patch.data[di+1] = srcData[si+1];
+            patch.data[di+2] = srcData[si+2];
+            patch.data[di+3] = srcData[si+3];
+          } else {
+            const cur = ctx.getImageData(px, py, 1, 1).data;
+            patch.data[di]=cur[0]; patch.data[di+1]=cur[1]; patch.data[di+2]=cur[2]; patch.data[di+3]=cur[3];
+          }
+        }
+      }
+      ctx.putImageData(patch, x0, y0);
+    }
+  }
+
+  function saveHistory(){
+    if (history.length > 15) history.shift();
+    history.push(ctx.getImageData(0,0,canvas.width,canvas.height));
+    btnUndo.disabled = false;
+  }
+
+  function startDraw(e){
+    if (!hasImage) return;
+    e.preventDefault();
+    saveHistory();
+    drawing = true;
+    const p = getPos(e);
+    paintAt(p.x, p.y);
+  }
+  function moveDraw(e){
+    const p = getPos(e);
+    updateCursor(e);
+    if (!drawing) return;
+    e.preventDefault();
+    paintAt(p.x, p.y);
+  }
+  function endDraw(){ drawing = false; }
+
+  canvas.addEventListener('mousedown', startDraw);
+  canvas.addEventListener('mousemove', moveDraw);
+  window.addEventListener('mouseup', endDraw);
+  canvas.addEventListener('touchstart', startDraw, { passive:false });
+  canvas.addEventListener('touchmove', moveDraw, { passive:false });
+  window.addEventListener('touchend', endDraw);
+
+  function updateCursor(e){
+    const size = Number(brushSizeInput.value);
+    const rect = canvas.getBoundingClientRect();
+    const scale = rect.width / canvas.width;
+    const displaySize = size * scale;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    applyModeColor();
+    cursorDot.style.display = 'block';
+    cursorDot.style.width = displaySize + 'px';
+    cursorDot.style.height = displaySize + 'px';
+    cursorDot.style.left = (clientX - displaySize/2) + 'px';
+    cursorDot.style.top = (clientY - displaySize/2) + 'px';
+  }
+  canvas.addEventListener('mouseleave', () => cursorDot.style.display = 'none');
+
+  btnUndo.addEventListener('click', () => {
+    if (history.length === 0) return;
+    const last = history.pop();
+    ctx.putImageData(last, 0, 0);
+    btnUndo.disabled = history.length === 0;
+  });
+
+  btnReset.addEventListener('click', () => {
+    if (!originalImageData) return;
+    saveHistory();
+    ctx.putImageData(originalImageData, 0, 0);
+  });
+
+  btnDownload.addEventListener('click', () => {
+    const link = document.createElement('a');
+    link.download = 'magic-brush-result.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  });
+})();
+</script>
+</body>
+</html>
